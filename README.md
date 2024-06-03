@@ -7,10 +7,11 @@ Biggest pain points of Lua?
 - (LuaJIT) no bit operators.
 
 Features:
-- bit operators that get implicitly converted to `bit.*` calls.  
+- bit operators that get implicitly converted to `bit.*` calls.
 	Metamethods for this? but I suspect that will take too much runtime-changes, like testing each argument for a metamethod field, optionally calling, etc, and it would ruin performance.
 - shorthand lambdas like in MetaLua or JavaScript.
-	|x,y| x+y or |x,y| do z=x+y return z end
+	`|x,y| do z=x+y return z end`.  The `do` is only there to appease my vim syntax highlighter.
+	maybe later I'll add `|x,y| x+y`
 - the ext.debug syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
 - default operators for functions, coroutines, etc from ext.  I don't need to do this, why not just leave it optional as `luajit -llangfix -lext` ?
 - C types at global scope. this is an easy optional `require` to vanilla LuaJIT.

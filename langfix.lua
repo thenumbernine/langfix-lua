@@ -34,6 +34,7 @@ function LuaFixedParser:parse_functiondef()
 		local lastArg = args:last()
 		local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
 		self:mustbe('|', 'symbol')
+		self:mustbe('do', 'keyword')
 		self.functionStack:insert(functionType)
 		local block = self:parse_block(functionType)
 		asserteq(self.functionStack:remove(), functionType)
