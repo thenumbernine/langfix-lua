@@ -141,77 +141,7 @@ for _,info in ipairs{
 	end
 end
 
---[==[
--- does xpcall forward args correctly?  not in vanilla lua 5.1, and in luajit without 5.2 compat
--- TODO in somewhere like ext.xpcall, wrap global xpcall() if this functionality is missing
--- local xpcallfwdargs = select(2, xpcall(function(x) return x end, function() end, true))
-
-local oldload = (_VERSION == 'Lua 5.1' and not _G.jit) and loadstring or load
-
--- ok here's my modified load behavior
--- it's going to parse the lua 5.4 code and spit out the luajit code
-local function newload(data, ...)
-	-- 5.1 behavior: load(func, name) versus loadstring(data, name)
-	-- 5.2..5.4 behavior: load(chunk, name, mode, env)
-	-- TODO mind you the formatting on re-converting it will be off ...
-	-- errors won't match up ...
-	-- so I'll re-insert the generated code
-	-- TODO would be nice to save whitespace and re-insert that ... hmm maybe long into the future ...
-	-- TODO xpcall behavior testing for when we are allowed to forward the args ... maybe that compat behavior belongs in ext ?
-	local args = {...}
-	args.n = select('#', ...)
-	local success, result = xpcall(function()
-		local tree = LuaFixedParser.parse(data, source)
-		local code = tostring(tree)
-		return oldload(code, unpack(args, 1, args.n))
-	end, function(err)
-		return showcode(code)..'\n'
-			..err..'\n'
-			..debug.traceback()
-	end)
-	if not success then return nil, result end
-	return result
-end
-
--- override global load() function, and maybe loadfile() if it's present too
--- (maybe loadstring() too ?)
-if _G.loadstring ~= nil then _G.loadstring = newload end
--- TODO if we're in luajit (_VERSION=Lua 5.1) then load() will handle strings, but if we're in lua 5.1 then it will only handle functions (according to docs?) right?
-_G.load = newload
-
-local function newloadfile(filename, ...)
-	local f, err = io.open(filename, 'r')
-	if not f then return nil, err end
-	local data, err = f:read'*a'
-	f:close()
-	if err then return nil, err end
-
-	return newload(data, filename, ...)
-end
-_G.loadfile = newloadfile
-
--- next TODO here , same as ext.debug (consider making modular)
--- ... wedge in new package.seachers[2]/package.loaders[2] behavior to use my modified load()
-local searchers = assert(package.searchers or package.loaders, "couldn't find searchers")
-local oldsearchfile = searchers[2]
-local function newsearchfile(req, ...)
-	local filename, err = package.searchpath(req, package.path)
-	if not filename then return err end
-
-	local f, err = io.open(filename, 'r')
-	if not f then return err end
-	local d, err = f:read'*a'
-	f:close()
-	if err then return err end
-
-	local f, err = newload(d, filename)
-	return f or err
-end
-searchers[2] = newsearchfile
---]==]
--- [==[ moving it all to ext.load (and ext.require?)
 table.insert(require 'ext.load'.xforms, function(data)
 	local tree = LuaFixedParser.parse(data, source)
 	return tostring(tree)
 end)
---]==]
