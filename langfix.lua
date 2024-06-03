@@ -1,7 +1,6 @@
 --[[
 I wanted to make my grammar-parser-generaor first, but meh
 --]]
-local showcode = require 'template.showcode'
 local LuaParser = require 'parser.lua.parser'
 
 local unpack = _G.unpack or table.unpack
@@ -87,7 +86,7 @@ function LuaFixedParser:parse_functiondef()
 			block = {ast._return(exp)}
 		end
 		
-		return self:makeFunction(nil, args, table.unpack(block))
+		return self:makeFunction(nil, args, unpack(block))
 			:setspan{from = from, to = self:getloc()}
 	end
 	return LuaFixedParser.super.parse_functiondef(self)
@@ -142,8 +141,10 @@ for _,info in ipairs{
 	end
 end
 
+--[==[
 -- does xpcall forward args correctly?  not in vanilla lua 5.1, and in luajit without 5.2 compat
-local xpcallfwdargs = select(2, xpcall(function(x) return x end, function() end, true))
+-- TODO in somewhere like ext.xpcall, wrap global xpcall() if this functionality is missing
+-- local xpcallfwdargs = select(2, xpcall(function(x) return x end, function() end, true))
 
 local oldload = (_VERSION == 'Lua 5.1' and not _G.jit) and loadstring or load
 
@@ -157,34 +158,19 @@ local function newload(data, ...)
 	-- so I'll re-insert the generated code
 	-- TODO would be nice to save whitespace and re-insert that ... hmm maybe long into the future ...
 	-- TODO xpcall behavior testing for when we are allowed to forward the args ... maybe that compat behavior belongs in ext ?
-	local source = ...
-	if xpcallfwdargs then
-		local success, result = xpcall(function(...)
-			local tree = LuaFixedParser.parse(data, source)
-			local code = tostring(tree)
-			return oldload(code, ...)
-		end, function(err)
-			return --showcode(code)..'\n'..
-				err..'\n'
-				..debug.traceback()
-		end, ...)
-		if not success then return nil, result end
-		return result
-	else
-		local args = {...}
-		args.n = select('#', ...)
-		local success, result = xpcall(function()
-			local tree = LuaFixedParser.parse(data, source)
-			local code = tostring(tree)
-			return oldload(code, unpack(args, 1, args.n))
-		end, function(err)
-			return showcode(code)..'\n'
-				..err..'\n'
-				..debug.traceback()
-		end)
-		if not success then return nil, result end
-		return result
-	end
+	local args = {...}
+	args.n = select('#', ...)
+	local success, result = xpcall(function()
+		local tree = LuaFixedParser.parse(data, source)
+		local code = tostring(tree)
+		return oldload(code, unpack(args, 1, args.n))
+	end, function(err)
+		return showcode(code)..'\n'
+			..err..'\n'
+			..debug.traceback()
+	end)
+	if not success then return nil, result end
+	return result
 end
 
 -- override global load() function, and maybe loadfile() if it's present too
@@ -222,3 +208,10 @@ local function newsearchfile(req, ...)
 	return f or err
 end
 searchers[2] = newsearchfile
+--]==]
+-- [==[ moving it all to ext.load (and ext.require?)
+table.insert(require 'ext.load'.xforms, function(data)
+	local tree = LuaFixedParser.parse(data, source)
+	return tostring(tree)
+end)
+--]==]
