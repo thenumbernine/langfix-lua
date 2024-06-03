@@ -21,31 +21,6 @@ function LuaFixedParser:init(data, source)
 	-- TODO HERE I could insert <<< into the symbols and map it to luajit arshift ...
 end
 
--- lambdas?
--- might have to reorganize syntax for this ...
-local asserteq = require 'ext.assert'.eq
-function LuaFixedParser:parse_functiondef()
-	local from = self:getloc()
-	-- metalua format |args|
-	-- but then with a proper function body, none of this single-expression python lambda bullshit
-	if self:canbe('|', 'symbol') then
-		
-		local args = self:parse_parlist() or table()
-		local lastArg = args:last()
-		local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
-		self:mustbe('|', 'symbol')
-		self:mustbe('do', 'keyword')
-		self.functionStack:insert(functionType)
-		local block = self:parse_block(functionType)
-		asserteq(self.functionStack:remove(), functionType)
-		self:mustbe('end', 'keyword')
-		
-		return self:makeFunction(nil, args, table.unpack(block))
-			:setspan{from = from, to = self:getloc()}
-	end
-	return LuaFixedParser.super.parse_functiondef(self)
-end
-
 --[[ TODO make a new 'ast' namespace and subclass all former classes into it
 local luaast = LuaFixedParser.ast
 local ast = {}
@@ -77,6 +52,46 @@ local _bor = ast._bor
 local _shl = ast._shl
 local _shr = ast._shr
 --]]
+
+
+
+-- lambdas?
+-- might have to reorganize syntax for this ...
+local asserteq = require 'ext.assert'.eq
+function LuaFixedParser:parse_functiondef()
+	local from = self:getloc()
+	-- metalua format |args|
+	-- but then with a proper function body, none of this single-expression python lambda bullshit
+	if self:canbe('|', 'symbol') then
+		
+		local args = self:parse_parlist() or table()
+		local lastArg = args:last()
+		local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
+		self:mustbe('|', 'symbol')
+	
+		local block
+		if self:canbe('do', 'keyword') then
+			self.functionStack:insert(functionType)
+			block = self:parse_block(functionType)
+			asserteq(self.functionStack:remove(), functionType)
+			self:mustbe('end', 'keyword')
+		else
+			-- implicit return of single-expression
+			-- should this allow return-single or return-multiple?
+			-- i.e. should commas precedence be to include in the expression or should they become outside the function? 
+			-- outside I think for ambiguity.
+			-- though inside would be more flexible ... |x,y,z|x,y,z returns 3 args ...
+			--local exp = self:parse_prefixexp()	-- will require parentehsis to wrap 
+			local exp = self:parse_exp()			-- won't require
+			assert(exp, "expected expression")
+			block = {ast._return(exp)}
+		end
+		
+		return self:makeFunction(nil, args, table.unpack(block))
+			:setspan{from = from, to = self:getloc()}
+	end
+	return LuaFixedParser.super.parse_functiondef(self)
+end
 
 local function intptrcode(arg)
 	return "require'ffi'.cast('intptr_t',"..arg..')'
