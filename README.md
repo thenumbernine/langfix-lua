@@ -26,6 +26,7 @@ Complementing Features (in other libraries):
 
 TODO
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).
+	- Maybe a first-line-comment for something like `use strict`, to specify what features should be on or off, as an exception to whatever default setting.
 - Metamethods for this? but I suspect that will take too much runtime-changes, like testing each argument for a metamethod field, optionally calling, etc, and it would ruin performance.
 - Better shim layer / modular shim layer.  Same shim used in `local-default`, `ext-debut`, `profile`, and here.  Would be nice to just provide a single interface for patching `load()`.
 	- Maybe put it in ext.load, let that override the global load and loadfile, and then let it expose a table for modifying load content transformations.
