@@ -16,7 +16,7 @@ end
 
 function LuaFixedParser:init(data, source)
 	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
-	LuaFixedParser.super.init(self, data, 'Lua 5.4', source)
+	LuaFixedParser.super.init(self, data, 'Lua 5.4', source, not not _G.jit)
 	
 	-- TODO HERE I could insert <<< into the symbols and map it to luajit arshift ...
 end
