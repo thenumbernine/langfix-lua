@@ -1,13 +1,11 @@
 --[[
 I wanted to make my grammar-parser-generaor first, but meh
 --]]
+local table = require 'ext.table'
 local asserteq = require 'ext.assert'.eq
 local assertindex = require 'ext.assert'.index
 local LuaParser = require 'parser.lua.parser'
 local LuaTokenizer = require 'parser.lua.tokenizer'
-
-local unpack = _G.unpack or table.unpack
-
 
 local LuaFixedTokenizer = LuaTokenizer:subclass()
 
@@ -185,7 +183,7 @@ function LuaFixedParser:parse_functiondef()
 			block = {ast._return(exp)}
 		end
 		
-		return self:makeFunction(nil, args, unpack(block))
+		return self:makeFunction(nil, args, table.unpack(block))
 			:setspan{from = from, to = self:getloc()}
 	end
 	return LuaFixedParser.super.parse_functiondef(self)
