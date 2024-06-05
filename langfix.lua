@@ -1,11 +1,63 @@
 --[[
 I wanted to make my grammar-parser-generaor first, but meh
 --]]
+local asserteq = require 'ext.assert'.eq
+local assertindex = require 'ext.assert'.index
 local LuaParser = require 'parser.lua.parser'
+local LuaTokenizer = require 'parser.lua.tokenizer'
 
 local unpack = _G.unpack or table.unpack
 
+
+local LuaFixedTokenizer = LuaTokenizer:subclass()
+
 local LuaFixedParser = LuaParser:subclass()
+
+LuaFixedParser.ast = table(LuaFixedParser.ast)
+local ast = LuaFixedParser.ast
+
+-- I could insert >>> into the symbols and map it to luajit arshift ...
+ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
+
+local optoinfos = {
+	{'addto', '+='},
+	{'subto', '-='},
+	{'multo', '*='},
+	{'divto', '/='},
+	{'idivto', '//='},
+	{'modto', '%='},
+	{'powto', '^='},
+	{'bandto', '&='},
+	{'borto', '|='},
+	{'shlto', '<<='},
+	{'shrto', '>>='},
+	{'ashrto', '>>>='},
+}
+
+for _,info in ipairs(optoinfos) do
+	local name, op = table.unpack(info)
+	local cl = ast._assign:subclass{type=name, op=op}
+	ast['_'..name] = cl
+	function cl:serialize(apply)
+		local vars = table.mapi(self.vars, apply)
+		local exprs = table.mapi(self.exprs, apply)
+		return vars:concat','..' = '..vars:mapi(function(v,i)
+			return '('..v..' '..op:sub(1,#op-1)..' '..exprs[i]..')'
+		end):concat','
+	end
+end
+
+
+function LuaFixedTokenizer:initSymbolsAndKeywords(...)
+	LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
+	
+	self.symbols:insert(ast._ashr.op)
+	for _,info in ipairs(optoinfos) do
+		local name, op = table.unpack(info)
+		self.symbols:insert(op)
+	end
+end
+
 
 -- parse *all* bitwise operators, and for LuaJIT make sure to replace them with bit.xxx function calls.
 
@@ -14,10 +66,15 @@ function LuaFixedParser.parse(...)
 end
 
 function LuaFixedParser:init(data, source)
-	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
-	LuaFixedParser.super.init(self, data, 'Lua 5.4', source, not not _G.jit)
+	self.version = 'Lua 5.4'
+	self.useluajit = not not _G.jit
 	
-	-- TODO HERE I could insert <<< into the symbols and map it to luajit arshift ...
+	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
+	LuaFixedParser.super.init(self, data, self.version, source, self.useluajit)
+end
+
+function LuaFixedParser:buildTokenizer(data)
+	return LuaFixedTokenizer(data, self.version, self.useluajit)
 end
 
 --[[ TODO make a new 'ast' namespace and subclass all former classes into it
@@ -41,7 +98,6 @@ local _shl = ast._shl:subclass()
 local _shr = ast._shr:subclass()
 --]]
 -- [[ just modify the original
-local ast = LuaFixedParser.ast
 LuaFixedParser.ast = ast
 
 local _idiv = ast._idiv
@@ -52,11 +108,54 @@ local _shl = ast._shl
 local _shr = ast._shr
 --]]
 
-
+-- add op= parsing
+function LuaFixedParser:parse_assign(vars, from, ...)
+	if self:canbe('+=', 'symbol') then
+		return ast._addto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('-=', 'symbol') then
+		return ast._subto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('-=', 'symbol') then
+		return ast._subto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('*=', 'symbol') then
+		return ast._multo(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('/=', 'symbol') then
+		return ast._divto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('//=', 'symbol') then
+		return ast._idivto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('%=', 'symbol') then
+		return ast._modto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('^=', 'symbol') then
+		return ast._powto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('&=', 'symbol') then
+		return ast._bandto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('|=', 'symbol') then
+		return ast._borto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('<<=', 'symbol') then
+		return ast._shlto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('>>=', 'symbol') then
+		return ast._shrto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('>>>=', 'symbol') then
+		return ast._ashrto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	else
+		return LuaFixedParser.super.parse_assign(self, vars, from, ...)
+	end
+end
 
 -- lambdas?
 -- might have to reorganize syntax for this ...
-local asserteq = require 'ext.assert'.eq
 function LuaFixedParser:parse_functiondef()
 	local from = self:getloc()
 	-- metalua format |args|
@@ -119,13 +218,18 @@ for _,info in ipairs{
 	{type='bnot'},
 	{type='shl', func='lshift'},
 	{type='shr', func='rshift'},
+	{type='ashr', func='arshift'},
 } do
 	local func = info.func or info.type
 	
 	-- looks like the luajit bitness of 'bit' using Lua-numbers is 32-bit, even for 64-bit arch builds ...
 	-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
 	-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
-	local cl = ast['_'..info.type]
+	local key = '_'..info.type
+	local cl = assertindex(ast, key)
+	--cl = cl:subclass()	-- TODO fixme
+	ast[key] = cl
+
 	-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
 	function cl:serialize(apply)
 		local args = {}
@@ -141,7 +245,7 @@ for _,info in ipairs{
 	end
 end
 
-table.insert(require 'ext.load'.xforms, function(data)
+require 'ext.load'.xforms:insert(function(data, source)
 	local tree = LuaFixedParser.parse(data, source)
 	return tostring(tree)
 end)
