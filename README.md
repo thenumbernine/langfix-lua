@@ -1,12 +1,12 @@
 Transpiled language because I'm lazy.
 
-Transpile to LuaJIT and not C or anything compiled because I still want load() access. (Sorry NeLua)
+Transpile to LuaJIT and not C or anything compiled because I still want `load()` access. (Sorry NeLua)
 
 So this is basically NeLua or MetaLua, but everything is pure Lua -- no external compiling required.
 PRO:
 - Now you can use `load()`.  You can't in NeLua last I checked.
 CON:
-- Because it is centered around LuaJIT, which has not yet been ported to WASM last I checked.
+- It is centered around LuaJIT, which has not yet been ported to WASM last I checked.
 
 Biggest pain points of Lua?
 - one-based tables.
@@ -14,7 +14,7 @@ Biggest pain points of Lua?
 - (LuaJIT) no bit operators.
 
 Features:
-- bit operators that get implicitly converted to `bit.*` calls: `& | << >> >>>`
+- bit operators that get implicitly converted to `bit.*` calls: `& | << >> >>>`.  They don't work with metatmethods (yet?).
 - Assign-to operators: `+= -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
 - shorthand single-expression: `|x,y| x+y`.
 - shorthand multi-statement: `|x,y| do return x+y end`.
