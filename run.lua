@@ -17,4 +17,8 @@ for i=#parts,1,-1 do
 end
 package.path = parts:concat';'
 
+-- shift global args
+local oldarg = arg
+arg = {[0]=oldarg[1], table.unpack(arg, 2)}
+
 assert(loadfile((...)))(select(2, ...))
