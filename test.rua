@@ -5,7 +5,7 @@ asserteq( (||1)(), 1)
 asserteq( (|x|x+1)(1), 2)
 
 -- single-statement lambda with multiple-return ... not supported yet
--- assert(load[[ asserteq( (|x|x+1,x+1)(1)) ]])()
+--assert(load[[ asserteq( (|x|(x+1,x+1))(1), 2) ]])()
 
 -- multiple-statement lamda
 asserteq( (|n| do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)

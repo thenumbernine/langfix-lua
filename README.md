@@ -15,7 +15,7 @@ Biggest pain points of Lua?
 
 Features:
 - bit operators that get implicitly converted to `bit.*` calls: `& | << >> >>>`.  They don't work with metatmethods (yet?).
-- Assign-to operators: `+= -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
+- Assign-to operators: `..= += -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
 - shorthand single-expression: `|x,y| x+y`.
 - shorthand multi-statement: `|x,y| do return x+y end`.
 
@@ -26,6 +26,7 @@ Complementing Features (in other libraries):
 - https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function, so why not just do that with a transpiler-parser as well? In fact TODO for this is right now it only operates via `require()`.  Would be nice for it to operate via `load()` as well.  Might have to standardize my shim layer of the `require` and `load` functions which are used in this, `ext.debug`, `local-default`, `profiler`, `fullcallstack`, etc.
 
 TODO
+- `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
 - "safe-navigation operator" `a?.b` lol it's already built into Lua.  `nil` is if something doesn't exist, and always evaluates to false in boolean coercion.
 	`a?.b?.c?.d` though ... a bailout-on-nil evaluation of successive indexes/calls would be nice.
 	`a?['bar']`

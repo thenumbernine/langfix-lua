@@ -18,6 +18,7 @@ local ast = LuaFixedParser.ast
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
 
 local optoinfos = {
+	{'concatto', '..='},
 	{'addto', '+='},
 	{'subto', '-='},
 	{'multo', '*='},
@@ -108,7 +109,10 @@ local _shr = ast._shr
 
 -- add op= parsing
 function LuaFixedParser:parse_assign(vars, from, ...)
-	if self:canbe('+=', 'symbol') then
+	if self:canbe('..=', 'symbol') then
+		return ast._concatto(vars, assert(self:parse_explist()))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('+=', 'symbol') then
 		return ast._addto(vars, assert(self:parse_explist()))
 			:setspan{from = from, to = self:getloc()}
 	elseif self:canbe('-=', 'symbol') then
