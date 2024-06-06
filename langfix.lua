@@ -213,12 +213,12 @@ function _idiv:serialzie(apply)
 	-- parenthesis required?  
 	-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
 	-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
-	local args = self.args:mapi(apply):mapi(intptrcode)
+	local args = table.mapi(self, apply):mapi(intptrcode)
 	return '('..args:concat'/'..')'
 	--]]
 	--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
 	return '((function()'
-		..' local x = '..table.mapi(self.args, apply):concat'/'
+		..' local x = '..args:concat'/'
 		..' return x < 0 and math.ceil(x) or math.floor(x)'
 		..' end)())'
 	--]]
@@ -245,16 +245,13 @@ for _,info in ipairs{
 
 	-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
 	function cl:serialize(apply)
-		local args = {}
-		for i=1,#self.args do
-			args[i] = apply(self.args[i])
-		end
+		local args = table.mapi(self, apply)
 		--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
 		-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
 		-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
 		args = args:mapi(intptrcode)
 		--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
-		return '(bit.'..func..'('..table.concat(args, ',')..'))'
+		return '(bit.'..func..'('..args:concat','..'))'
 	end
 end
 
