@@ -181,10 +181,21 @@ function LuaFixedParser:parse_functiondef()
 			-- i.e. should commas precedence be to include in the expression or should they become outside the function? 
 			-- outside I think for ambiguity.
 			-- though inside would be more flexible ... |x,y,z|x,y,z returns 3 args ...
-			--local exp = self:parse_prefixexp()	-- will require parentehsis to wrap 
-			local exp = self:parse_exp()			-- won't require
+			--[[ will require parentehsis to wrap 
+			local exp = self:parse_prefixexp()
 			assert(exp, "expected expression")
 			block = {ast._return(exp)}
+			--]]
+			--[[ won't require parenthesis to wrap
+			local exp = self:parse_exp()
+			assert(exp, "expected expression")
+			block = {ast._return(exp)}
+			--]]
+			-- [[
+			local explist = self:parse_explist()			-- won't require
+			assert(explist, "expected expression")
+			block = {ast._return(table.unpack(explist))}
+			--]]
 		end
 		
 		return self:makeFunction(nil, args, table.unpack(block))

@@ -21,4 +21,9 @@ package.path = parts:concat';'
 local oldarg = arg
 arg = {[0]=oldarg[1], table.unpack(arg, 2)}
 
-assert(loadfile((assert(..., 'expected filename'))))(select(2, ...))
+local fin = assert(..., 'expected filename')
+if path(fin):exists() then
+	assert(loadfile(fin))(select(2, ...))
+else
+	assert(load(fin))(select(2, ...))
+end
