@@ -1,5 +1,6 @@
 #!/usr/bin/env luajit
-
+require 'ext'
+if jit then require 'ext.ctypes' end
 require 'langfix'
 
 -- and while we're here , modify package.path to accept our new extension as well

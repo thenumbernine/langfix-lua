@@ -46,7 +46,7 @@ asserteq(g(3), (3+1) << (3-1))
 --]=]
 
 -- global-scope boxed ctypes
-asserteq(int(7)/int(2), int(3))
+if int then asserteq(int(7)/int(2), int(3)) end
 
 -- integer division TODO has errors 
 --print(7//2, 3)
@@ -71,6 +71,6 @@ asserteq(x, nil)
 -- :bind(), :co() function metatable
 -- :resume() thread metatable
 -- int ctype global
-asserttableieq({(|x,y| do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48})
+if int then asserttableieq({(|x,y| do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
 
 print'done'
