@@ -4,7 +4,7 @@
 asserteq( (||1)(), 1)
 asserteq( (|x|x+1)(1), 2)
 
--- single-statement lambda with multiple-return ... works 
+-- single-statement lambda with multiple-return ... works
 assert(load[[ asserteq( (|x|x+1,x+1)(1), 2) ]])()
 -- but now for some reason multiple-return wrapped in parenthesis doesn't work ...
 --assert(load[[ asserteq( (|x|(x+1, x+1))(1), 2) ]])()
@@ -48,7 +48,7 @@ asserteq(g(3), (3+1) << (3-1))
 -- global-scope boxed ctypes
 if int then asserteq(int(7)/int(2), int(3)) end
 
--- integer division TODO has errors 
+-- integer division TODO has errors
 --print(7//2, 3)
 
 -- lambda + function-operator
@@ -64,6 +64,42 @@ do
 end
 asserteq(x, nil)
 --]=]
+
+-- [[ safe-navigation operators ...
+do
+	-- read
+
+	local a = nil
+	asserteq(a?.b, nil)
+	asserteq(a?['b'], nil)
+	asserteq(a?(), nil)
+
+	local a = {}
+	asserteq(a?.b?.c, nil)
+	asserterror(a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	asserteq(a?.b?.c?(), nil)
+	asserteq(a?.b?:c?(), nil)
+end
+--]]
+--[[ safe-navigation write operators ...
+do
+	a.foo = 'bar'
+	a.b = function(self)
+		asserteq(self.foo, 'bar')
+		return 'bar'
+	end
+	asserteq(a:b?(), 'bar')
+
+	-- write too?
+
+	a = nil
+	a?.b = 'foo'		-- assert no error
+	a?.b?.c = 'foo'		-- assert no error and no assignment
+	a = {}
+	a?.b = 'foo'		-- assert no error
+	asserteq(a.b, 'foo')
+end
+--]]
 
 -- tests:
 -- multi line lambdas

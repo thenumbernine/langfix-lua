@@ -4,6 +4,7 @@ I wanted to make my grammar-parser-generaor first, but meh
 local table = require 'ext.table'
 local asserteq = require 'ext.assert'.eq
 local assertindex = require 'ext.assert'.index
+local showcode = require 'template.showcode'
 local LuaParser = require 'parser.lua.parser'
 local LuaTokenizer = require 'parser.lua.tokenizer'
 
@@ -134,9 +135,9 @@ becomes ...
 	if x == nil then return nil end
 	return (function(x)
 		if x == nil then return nil end
-		return x
-	end)(x.c)
-end)(a.b)
+		return x.c
+	end)(x.b)
+end)(a)
 
 a.b.c()
 becomes
@@ -146,20 +147,23 @@ so
 a?.b?.c()
 becomes
 call(optindex(optindex(var'a', string'b'), string'c'))
-... but then the parent 'call' code needs know about its child ... 
+... but then the parent 'call' code needs know about its child ...
 ... or does it, since this is a call irregardless ... is the bailout per-expression?
 that means generating a statement needs to search through the stmt tree to find any opts
 and if they exist, wrap the expr in (function() end)()
 
-(function()
-	(function(x)
-		if x == nil then return nil end
-		return (function(x)
-			if x == nil then return nil end
-			return x()
-		end)(x.c)
-	end)(a.b)
-end)
+(function(x)							-- a?.
+	if x == nil then return nil end		-- a?.
+
+	return (function(x)					-- b?.
+		if x == nil then return nil end	-- b?.
+
+		return x.c()					-- c() ... inner-most expression is a index-then-call operator, not-optional
+										-- this can error if c is nil
+
+	end)(x.b)							-- b?.
+
+end)(a)									-- a?.
 
 waiit
 what is being short-circuited here?
@@ -170,12 +174,38 @@ just the single . operator i.g. otherwise `a?.b + a.c` could short-circuit the w
 nahh i think i need an optcall to go along with my optindex
 
 a?.b?()
-means "evaluate to nil if b is nil ... and don't call b if b is nil ..." ... is redundant
-a?.b()
-means "evaluate to nil if b is nil ... and call the result" ? that's what JS does, which i think is dumb ...
+becomes
+(function(x)
+	if x == nil then return nil end
+	(function(x)
+		if x == nil then return nil end
+		return x()
+	end)(x.b)
+end)(a)
 
-ok what is the scope of short-ciruit ...
+
+ok this is only for chains of call+indexself+index
+so yeah I do need optcall+optindexself+optindex
+and when generating the code, I have to assert that all these nodes have only 1 child, and I need to generate the code in opposite order of any hierarchies with opt nodes in them.
+
+
+I need to look for ?'s before ['s and .'s in parse_prefixexp ... optindex
+I need to look for ? before : in parse_prefixexp also ...  optindexself
+... and before parse_args in parse_prefixexp .... in which case, return optcall
+
+... and all of this on rhs only?
+... or shhould it eval on lhs as well as full-on stmt-short-circuit?  a?.b = c?.d bails fully if a is nil -- no errors?
 --]]
+ast._optcall = ast._call:subclass()
+ast._optcall.type = 'optcall'
+
+ast._optindex = ast._index:subclass()
+ast._optindex.type = 'optindex'
+
+ast._optindexself = ast._indexself:subclass()
+ast._optindexself.type = 'optindexself'
+
+-- TODO serializatio of these
 
 
 function LuaFixedTokenizer:initSymbolsAndKeywords(...)
@@ -186,6 +216,8 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 		local name, op = table.unpack(info)
 		self.symbols:insert(op)
 	end
+
+	self.symbols:insert'?'	-- optional token, pairs with ?. ?: ?[ ?(
 end
 
 
@@ -256,6 +288,66 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	end
 end
 
+-- copy of LuaParser:parse_prefixexp()
+-- but with ?'s inserted for optcall, optindex, optindexself
+function LuaFixedParser:parse_prefixexp()
+	local ast = self.ast
+	local prefixexp
+	local from = self:getloc()
+
+	if self:canbe('(', 'symbol') then
+		local exp = assert(self:parse_exp())
+		self:mustbe(')', 'symbol')
+		prefixexp = ast._par(exp)
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe(nil, 'name') then
+		prefixexp = ast._var(self.lasttoken)
+			:setspan{from = from, to = self:getloc()}
+	else
+		return
+	end
+
+	while true do
+		local opt = self:canbe('?', 'symbol')
+		if self:canbe('[', 'symbol') then
+			local cl = opt and ast._optindex or ast._index
+			prefixexp = cl(prefixexp, assert(self:parse_exp()))
+			self:mustbe(']', 'symbol')
+			prefixexp:setspan{from = from, to = self:getloc()}
+		elseif self:canbe('.', 'symbol') then
+			local cl = opt and ast._optindex or ast._index
+			local sfrom = self:getloc()
+			prefixexp = cl(
+				prefixexp,
+				ast._string(self:mustbe(nil, 'name'))
+					:setspan{from = sfrom, to = self:getloc()}
+			)
+			:setspan{from = from, to = self:getloc()}
+		elseif self:canbe(':', 'symbol') then
+			local cl = opt and ast._optindexself or ast._indexself
+			prefixexp = cl(
+				prefixexp,
+				self:mustbe(nil, 'name')
+			):setspan{from = from, to = self:getloc()}
+
+			local clcall = self:canbe('?', 'symbol') and ast._optcall or ast._call
+			local args = self:parse_args()
+			if not args then error"function arguments expected" end
+			prefixexp = clcall(prefixexp, table.unpack(args))
+				:setspan{from = from, to = self:getloc()}
+		else
+			local args = self:parse_args()
+			if not args then break end
+
+			local clcall = opt and ast._optcall or ast._call
+			prefixexp = clcall(prefixexp, table.unpack(args))
+				:setspan{from = from, to = self:getloc()}
+		end
+	end
+
+	return prefixexp
+end
+
 -- lambdas
 function LuaFixedParser:parse_functiondef()
 	local from = self:getloc()
@@ -304,8 +396,17 @@ function LuaFixedParser:parse_functiondef()
 end
 
 require 'ext.load'.xforms:insert(function(data, source)
-	local tree = LuaFixedParser.parse(data, source)
-	local result = tostring(tree)
---DEBUG: print('\n'..source..'\n'..require 'template.showcode'(result)..'\n')
+	local result
+	assert(xpcall(function()
+		local tree = LuaFixedParser.parse(data, source)
+		result = tree:toLua()
+--DEBUG: print('\n'..source..'\n'..showcode(result)..'\n')
+	end, function(err)
+		return (source or '[]')..'\n'
+			..(data and ('data:\n'..showcode(data)..'\n') or '')
+			..(result and ('result:\n'..showcode(result)..'\n') or '')
+			..err..'\n'
+			..debug.traceback()
+	end))
 	return result
 end)
