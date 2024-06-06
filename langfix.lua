@@ -46,6 +46,137 @@ for _,info in ipairs(optoinfos) do
 	end
 end
 
+-- Make a new 'ast' namespace and subclass all former classes into it so that we don't mess with anyone using the base-class
+ast._idiv = ast._idiv:subclass()
+ast._band = ast._band:subclass()
+ast._bxor = ast._bxor:subclass()
+ast._bor = ast._bor:subclass()
+ast._shl = ast._shl:subclass()
+ast._shr = ast._shr:subclass()
+
+local function intptrcode(arg)
+	return "require'ffi'.cast('intptr_t',"..arg..')'
+end
+
+if not load'x=y//z' then
+	function ast._idiv:serialzie(apply)
+		-- [[ as integers, but requires ffi access ...
+		-- parenthesis required?
+		-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
+		-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
+		local args = table.mapi(self, apply):mapi(intptrcode)
+		return '('..args:concat'/'..')'
+		--]]
+		--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
+		return '((function()'
+			..' local x = '..args:concat'/'
+			..' return x < 0 and math.ceil(x) or math.floor(x)'
+			..' end)())'
+		--]]
+	end
+end
+
+-- don't override these if we're running in pure-Lua (except arshift, which will need its own implementation somewhere ... TODO)
+if not load'x=y|z' then
+	for _,info in ipairs{
+		{type='band'},
+		{type='bxor'},
+		{type='bor'},
+		{type='bnot'},
+		{type='shl', func='lshift'},
+		{type='shr', func='rshift'},
+		{type='ashr', func='arshift'},
+	} do
+		local func = info.func or info.type
+
+		-- looks like the luajit bitness of 'bit' using Lua-numbers is 32-bit, even for 64-bit arch builds ...
+		-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
+		-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
+		local key = '_'..info.type
+		local cl = assertindex(ast, key)
+		--cl = cl:subclass()	-- TODO fixme
+		ast[key] = cl
+
+		-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
+		function cl:serialize(apply)
+			local args = table.mapi(self, apply)
+			--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
+			-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
+			-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
+			args = args:mapi(intptrcode)
+			--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
+			return '(bit.'..func..'('..args:concat','..'))'
+		end
+	end
+end
+
+
+--[[
+how should a?.b be implemented?
+already Lua supports nil-as-undefined, so a.b is indistinguishable from a?.b
+(except in LuaJIT with cdata ... which throws exceptions when indexes are missing ... frustrating)
+the real operation of a?.b is to stop chaining for *successive* indexes, i.e. a?.b?.c
+
+... as an expression ...
+a.b.c
+becomes
+index(index(var'a', string'b'), string'c')
+becomes
+a.b.c
+
+so
+a?.b?.c
+becomes
+optindex(optindex(var'a', string'b'), string'c')
+becomes ...
+
+(function(x)
+	if x == nil then return nil end
+	return (function(x)
+		if x == nil then return nil end
+		return x
+	end)(x.c)
+end)(a.b)
+
+a.b.c()
+becomes
+call(index(index(var'a', string'b'), string'c'))
+
+so
+a?.b?.c()
+becomes
+call(optindex(optindex(var'a', string'b'), string'c'))
+... but then the parent 'call' code needs know about its child ... 
+... or does it, since this is a call irregardless ... is the bailout per-expression?
+that means generating a statement needs to search through the stmt tree to find any opts
+and if they exist, wrap the expr in (function() end)()
+
+(function()
+	(function(x)
+		if x == nil then return nil end
+		return (function(x)
+			if x == nil then return nil end
+			return x()
+		end)(x.c)
+	end)(a.b)
+end)
+
+waiit
+what is being short-circuited here?
+the single . index operator? or the entire expression?
+just the single . operator i.g. otherwise `a?.b + a.c` could short-circuit the whole thing upon fail ...
+... or is that a good thing?
+
+nahh i think i need an optcall to go along with my optindex
+
+a?.b?()
+means "evaluate to nil if b is nil ... and don't call b if b is nil ..." ... is redundant
+a?.b()
+means "evaluate to nil if b is nil ... and call the result" ? that's what JS does, which i think is dumb ...
+
+ok what is the scope of short-ciruit ...
+--]]
+
 
 function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
@@ -75,37 +206,6 @@ end
 function LuaFixedParser:buildTokenizer(data)
 	return LuaFixedTokenizer(data, self.version, self.useluajit)
 end
-
---[[ TODO make a new 'ast' namespace and subclass all former classes into it
-local luaast = LuaFixedParser.ast
-local ast = {}
-for k,v in pairs(luaast) do ast[k] = v end
-LuaFixedParser.ast = ast
-
-ast._idiv = ast._idiv:subclass()
-ast._band = ast._band:subclass()
-ast._bxor = ast._bxor:subclass()
-ast._bor = ast._bor:subclass()
-ast._shl = ast._shl:subclass()
-ast._shr = ast._shr:subclass()
-
-local _idiv = ast._idiv:subclass()
-local _band = ast._band:subclass()
-local _bxor = ast._bxor:subclass()
-local _bor = ast._bor:subclass()
-local _shl = ast._shl:subclass()
-local _shr = ast._shr:subclass()
---]]
--- [[ just modify the original
-LuaFixedParser.ast = ast
-
-local _idiv = ast._idiv
-local _band = ast._band
-local _bxor = ast._bxor
-local _bor = ast._bor
-local _shl = ast._shl
-local _shr = ast._shr
---]]
 
 -- add op= parsing
 function LuaFixedParser:parse_assign(vars, from, ...)
@@ -201,62 +301,6 @@ function LuaFixedParser:parse_functiondef()
 			:setspan{from = from, to = self:getloc()}
 	end
 	return LuaFixedParser.super.parse_functiondef(self)
-end
-
-local function intptrcode(arg)
-	return "require'ffi'.cast('intptr_t',"..arg..')'
-end
-
-if not load'x=y//z' then
-	function _idiv:serialzie(apply)
-		-- [[ as integers, but requires ffi access ...
-		-- parenthesis required?
-		-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
-		-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
-		local args = table.mapi(self, apply):mapi(intptrcode)
-		return '('..args:concat'/'..')'
-		--]]
-		--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
-		return '((function()'
-			..' local x = '..args:concat'/'
-			..' return x < 0 and math.ceil(x) or math.floor(x)'
-			..' end)())'
-		--]]
-	end
-end
-
--- don't override these if we're running in pure-Lua (except arshift, which will need its own implementation somewhere ... TODO)
-if not load'x=y|z' then
-	for _,info in ipairs{
-		{type='band'},
-		{type='bxor'},
-		{type='bor'},
-		{type='bnot'},
-		{type='shl', func='lshift'},
-		{type='shr', func='rshift'},
-		{type='ashr', func='arshift'},
-	} do
-		local func = info.func or info.type
-
-		-- looks like the luajit bitness of 'bit' using Lua-numbers is 32-bit, even for 64-bit arch builds ...
-		-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
-		-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
-		local key = '_'..info.type
-		local cl = assertindex(ast, key)
-		--cl = cl:subclass()	-- TODO fixme
-		ast[key] = cl
-
-		-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
-		function cl:serialize(apply)
-			local args = table.mapi(self, apply)
-			--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
-			-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
-			-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
-			args = args:mapi(intptrcode)
-			--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
-			return '(bit.'..func..'('..args:concat','..'))'
-		end
-	end
 end
 
 require 'ext.load'.xforms:insert(function(data, source)
