@@ -32,6 +32,7 @@ TODO
 	`a?['bar']`
 	`a?:foo()`
 - Legit ternary operator: `a ? b : c` but safe for boolean types?
+- Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).
 	- Maybe a first-line-comment for something like `use strict`, to specify what features should be on or off, as an exception to whatever default setting.
 - Metamethods for bit operators? but I suspect that will take too much runtime-changes, like testing each argument for a metamethod field, optionally calling, etc, and it would ruin performance.

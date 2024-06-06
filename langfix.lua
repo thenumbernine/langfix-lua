@@ -49,7 +49,7 @@ end
 
 function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
-	
+
 	self.symbols:insert(ast._ashr.op)
 	for _,info in ipairs(optoinfos) do
 		local name, op = table.unpack(info)
@@ -67,7 +67,7 @@ end
 function LuaFixedParser:init(data, source)
 	self.version = 'Lua 5.4'
 	self.useluajit = not not _G.jit
-	
+
 	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
 	LuaFixedParser.super.init(self, data, self.version, source, self.useluajit)
 end
@@ -156,19 +156,18 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	end
 end
 
--- lambdas?
--- might have to reorganize syntax for this ...
+-- lambdas
 function LuaFixedParser:parse_functiondef()
 	local from = self:getloc()
 	-- metalua format |args|
 	-- but then with a proper function body, none of this single-expression python lambda bullshit
 	if self:canbe('|', 'symbol') then
-		
+
 		local args = self:parse_parlist() or table()
 		local lastArg = args:last()
 		local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
 		self:mustbe('|', 'symbol')
-	
+
 		local block
 		if self:canbe('do', 'keyword') then
 			self.functionStack:insert(functionType)
@@ -178,10 +177,10 @@ function LuaFixedParser:parse_functiondef()
 		else
 			-- implicit return of single-expression
 			-- should this allow return-single or return-multiple?
-			-- i.e. should commas precedence be to include in the expression or should they become outside the function? 
+			-- i.e. should commas precedence be to include in the expression or should they become outside the function?
 			-- outside I think for ambiguity.
 			-- though inside would be more flexible ... |x,y,z|x,y,z returns 3 args ...
-			--[[ will require parentehsis to wrap 
+			--[[ will require parentehsis to wrap
 			local exp = self:parse_prefixexp()
 			assert(exp, "expected expression")
 			block = {ast._return(exp)}
@@ -197,7 +196,7 @@ function LuaFixedParser:parse_functiondef()
 			block = {ast._return(table.unpack(explist))}
 			--]]
 		end
-		
+
 		return self:makeFunction(nil, args, table.unpack(block))
 			:setspan{from = from, to = self:getloc()}
 	end
@@ -208,54 +207,61 @@ local function intptrcode(arg)
 	return "require'ffi'.cast('intptr_t',"..arg..')'
 end
 
-function _idiv:serialzie(apply)
-	-- [[ as integers, but requires ffi access ...
-	-- parenthesis required?  
-	-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
-	-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
-	local args = table.mapi(self, apply):mapi(intptrcode)
-	return '('..args:concat'/'..')'
-	--]]
-	--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
-	return '((function()'
-		..' local x = '..args:concat'/'
-		..' return x < 0 and math.ceil(x) or math.floor(x)'
-		..' end)())'
-	--]]
+if not load'x=y//z' then
+	function _idiv:serialzie(apply)
+		-- [[ as integers, but requires ffi access ...
+		-- parenthesis required?
+		-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
+		-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
+		local args = table.mapi(self, apply):mapi(intptrcode)
+		return '('..args:concat'/'..')'
+		--]]
+		--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
+		return '((function()'
+			..' local x = '..args:concat'/'
+			..' return x < 0 and math.ceil(x) or math.floor(x)'
+			..' end)())'
+		--]]
+	end
 end
 
-for _,info in ipairs{
-	{type='band'},
-	{type='bxor'},
-	{type='bor'},
-	{type='bnot'},
-	{type='shl', func='lshift'},
-	{type='shr', func='rshift'},
-	{type='ashr', func='arshift'},
-} do
-	local func = info.func or info.type
-	
-	-- looks like the luajit bitness of 'bit' using Lua-numbers is 32-bit, even for 64-bit arch builds ...
-	-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
-	-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
-	local key = '_'..info.type
-	local cl = assertindex(ast, key)
-	--cl = cl:subclass()	-- TODO fixme
-	ast[key] = cl
+-- don't override these if we're running in pure-Lua (except arshift, which will need its own implementation somewhere ... TODO)
+if not load'x=y|z' then
+	for _,info in ipairs{
+		{type='band'},
+		{type='bxor'},
+		{type='bor'},
+		{type='bnot'},
+		{type='shl', func='lshift'},
+		{type='shr', func='rshift'},
+		{type='ashr', func='arshift'},
+	} do
+		local func = info.func or info.type
 
-	-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
-	function cl:serialize(apply)
-		local args = table.mapi(self, apply)
-		--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
-		-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
-		-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
-		args = args:mapi(intptrcode)
-		--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
-		return '(bit.'..func..'('..args:concat','..'))'
+		-- looks like the luajit bitness of 'bit' using Lua-numbers is 32-bit, even for 64-bit arch builds ...
+		-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
+		-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
+		local key = '_'..info.type
+		local cl = assertindex(ast, key)
+		--cl = cl:subclass()	-- TODO fixme
+		ast[key] = cl
+
+		-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
+		function cl:serialize(apply)
+			local args = table.mapi(self, apply)
+			--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
+			-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
+			-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
+			args = args:mapi(intptrcode)
+			--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
+			return '(bit.'..func..'('..args:concat','..'))'
+		end
 	end
 end
 
 require 'ext.load'.xforms:insert(function(data, source)
 	local tree = LuaFixedParser.parse(data, source)
-	return tostring(tree)
+	local result = tostring(tree)
+--DEBUG: print('\n'..source..'\n'..require 'template.showcode'(result)..'\n')
+	return result
 end)
