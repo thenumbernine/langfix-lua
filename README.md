@@ -18,6 +18,7 @@ Features:
 - Assign-to operators: `..= += -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
 - shorthand single-expression: `|x,y| x+y`.
 - shorthand multi-statement: `|x,y| do return x+y end`.
+- "safe-navigation operator" `a?.b`, `a?['b']`, `a?:b()`, `a?()`, `a.b?()`, `a?.b?()`, `a?:b()`, `a?:b?()` etc ... to bailout evaluation of indexes and index-calls early.
 
 Complementing Features (in other libraries):
 - https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
@@ -27,10 +28,6 @@ Complementing Features (in other libraries):
 
 TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
-- "safe-navigation operator" `a?.b` lol it's already built into Lua.  `nil` is if something doesn't exist, and always evaluates to false in boolean coercion.
-	`a?.b?.c?.d` though ... a bailout-on-nil evaluation of successive indexes/calls would be nice.
-	`a?['bar']`
-	`a?:foo()`
 - Legit ternary operator: `a ? b : c` but safe for boolean types?
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).

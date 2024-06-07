@@ -106,8 +106,10 @@ do
 	asserteq(a?.b?:c?(), nil)	-- optcall optindexself absent
 
 	a.b = |x| asserteq(x, a)
-	a?:b()						-- call optindexself present
---	a?:b?()						-- optcall optindexself present
+	asserteq(a?:b(), a)				-- call optindexself present
+	asserteq(a?.b(a), a)			-- call optindex present
+	asserteq(a?.b?(a), a)			-- optcall optindex present
+	asserteq(a?:b?(), a)			-- optcall optindexself present
 end
 --]]
 --[[ safe-navigation write operators ...

@@ -197,6 +197,22 @@ I need to look for ? before : in parse_prefixexp also ...  optindexself
 ... or shhould it eval on lhs as well as full-on stmt-short-circuit?  a?.b = c?.d bails fully if a is nil -- no errors?
 --]]
 
+-- TODO these lambdas seem nice but don't always parse correctly
+-- Especially if you are immediately calling them -- in which case, two successive lambdas will try to use the 1st result to call the 2nd ....
+-- So if I have two statements that evaluate to lambdas, then at the statement-level I will need to insert ';' to separate them ...
+-- this tempts me to insert semicolons for all statements
+--[[
+for k,cl in pairs(ast) do
+	if ast._stmt:isa(cl) then
+		local cl2 = cl:subclass()
+		ast['_'..cl2.type] = cl2
+		function cl2:serialize(...)
+			return cl2.super.serialize(self, ...)..';'
+		end
+	end
+end
+--]]
+
 ast._optindex = ast._index:subclass()
 ast._optindex.type = 'optindex'
 function ast._optindex:serialize(apply)
@@ -213,12 +229,14 @@ end
 ast._optindexself = ast._indexself:subclass()
 ast._optindexself.type = 'optindexself'
 function ast._optindexself:serialize(apply)
+	-- this should only ever be placed under a call or optcall, which will handle it themselves
+	error('here with parent '..tostring(self.parent.type))
 	-- indexself key is a Lua string so don't apply()
 	return [[
 (function(t, k)
 	if t == nil then return nil end
 	return t[k]
-end)(]]..apply(self.expr)..','..self.key..')'
+end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
 end
 
 -- subclass the original _call, not our new one ...
@@ -226,6 +244,7 @@ ast._optcall = ast._call:subclass()
 ast._optcall.type = 'optcall'
 -- TODO args are evaluated even if short-circuit fails (so it's not a short-ciruit, just an error avoidance)
 function ast._optcall:serialize(apply)
+	local func = self.func
 	if ast._optindexself:isa(func) then
 		-- optcall optindexself
 		return [[
@@ -243,7 +262,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 (function(f, ...)
 	if f == nil then return nil end
 	return f(...)
-end)(]]..table{self.func}:append(self.args):mapi(apply):concat','..')'
+end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
 	end
 end
 
@@ -457,7 +476,7 @@ require 'ext.load'.xforms:insert(function(data, source)
 		parser:setData(data, source)
 		tree = parser.tree
 		result = tree:toLua()
---DEBUG: print('\n'..source..'\n'..showcode(result)..'\n')
+--DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
 	end, function(err)
 		return (source or '[]')..'\n'
 			..(data and ('data:\n'..showcode(data)..'\n') or '')
