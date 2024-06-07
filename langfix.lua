@@ -8,6 +8,10 @@ local showcode = require 'template.showcode'
 local LuaParser = require 'parser.lua.parser'
 local LuaTokenizer = require 'parser.lua.tokenizer'
 
+
+-- TODO tempting to dothis here, then assert it as a global in the codegen, instead of inserting "require 'ffi'" everywhere
+--ffi = require 'ffi'
+
 local LuaFixedTokenizer = LuaTokenizer:subclass()
 
 local LuaFixedParser = LuaParser:subclass()

@@ -5,7 +5,8 @@ asserteq( (||1)(), 1)
 asserteq( (|x|x+1)(1), 2)
 
 -- single-statement lambda with multiple-return ... works
-assert(load[[ asserteq( (|x|x+1,x+1)(1), 2) ]])()
+assert(load[[ asserteq( (|x|x+1,x+2)(1), 2) ]])()
+assert(load[[ asserteq( select(2, (|x|x+1,x+2)(1)), 3) ]])()
 -- but now for some reason multiple-return wrapped in parenthesis doesn't work ...
 --assert(load[[ asserteq( (|x|(x+1, x+1))(1), 2) ]])()
 

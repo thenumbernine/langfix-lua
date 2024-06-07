@@ -1,7 +1,7 @@
 #!/usr/bin/env luajit
 require 'ext'
 --require 'local-default' -- ... but this uses a shim parser, which langfix does too, so hmm
-if jit then require 'ext.ctypes' end
+require 'ext.ctypes'
 require 'langfix'
 
 -- and while we're here , modify package.path to accept our new extension as well
