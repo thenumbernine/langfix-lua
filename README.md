@@ -18,7 +18,7 @@ Features:
 - Assign-to operators: `..= += -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
 - shorthand single-expression: `|x,y| x+y`.
 - shorthand multi-statement: `|x,y| do return x+y end`.
-- "safe-navigation operator" `a?.b`, `a?['b']`, `a?:b()`, `a?()`, `a.b?()`, `a?.b?()`, `a?:b()`, `a?:b?()` etc ... to bailout evaluation of indexes and index-calls early.
+- "safe-navigation operator" `a?.b`, `a?['b']`, `a?:b()`, `a?()`, `a.b?()`, `a?.b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
 Complementing Features (in other libraries):
 - https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
