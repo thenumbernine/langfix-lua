@@ -24,10 +24,12 @@ asserteq(2 << 2, 8)
 
 -- op-assign
 do
-	local x = 1
+	x = 1
 	x += 2
 	asserteq(x, 3)
 end
+--asserteq(x, nil)	-- local-by-default
+x = nil				-- ... until I get it working
 
 -- pack op assign
 do
