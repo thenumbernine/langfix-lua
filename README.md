@@ -24,7 +24,7 @@ Complementing Features (in other libraries):
 - https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
 - `luajit -lext.debug` syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
 - `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in 
-- https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function, so why not just do that with a transpiler-parser as well? In fact TODO for this is right now it only operates via `require()`.  Would be nice for it to operate via `load()` as well.  Might have to standardize my shim layer of the `require` and `load` functions which are used in this, `ext.debug`, `local-default`, `profiler`, `fullcallstack`, etc.
+- https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
 
 TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
