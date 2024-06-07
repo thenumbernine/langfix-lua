@@ -196,24 +196,72 @@ I need to look for ? before : in parse_prefixexp also ...  optindexself
 ... and all of this on rhs only?
 ... or shhould it eval on lhs as well as full-on stmt-short-circuit?  a?.b = c?.d bails fully if a is nil -- no errors?
 --]]
-ast._optcall = ast._call:subclass()
-ast._optcall.type = 'optcall'
 
 ast._optindex = ast._index:subclass()
 ast._optindex.type = 'optindex'
 function ast._optindex:serialize(apply)
 	return [[
-(function(k,v)
-	if k == nil then return nil end
-	return k[v]
+(function(t, k)
+	if t == nil then return nil end
+	return t[k]
 end)(]]..apply(self.expr)..','..apply(self.key)..')'
 end
 
+-- ok here's where I start to break things
+-- indexself was only valid when a child of call, so call(indexself(t,k)) turned into t:k(), which was language shorthand for t.k(t)
+-- call(optindexself(t,'k'), v) is going to turn into 't?:k(v)', turns into 'function(t,k, ...) if t==nil then return end return t[k](t, ...) end)(t, 'k', v)
 ast._optindexself = ast._indexself:subclass()
 ast._optindexself.type = 'optindexself'
+function ast._optindexself:serialize(apply)
+	-- indexself key is a Lua string so don't apply()
+	return [[
+(function(t, k)
+	if t == nil then return nil end
+	return t[k]
+end)(]]..apply(self.expr)..','..self.key..')'
+end
 
--- TODO serializatio of these
+-- subclass the original _call, not our new one ...
+ast._optcall = ast._call:subclass()
+ast._optcall.type = 'optcall'
+-- TODO args are evaluated even if short-circuit fails (so it's not a short-ciruit, just an error avoidance)
+function ast._optcall:serialize(apply)
+	if ast._optindexself:isa(func) then
+		-- optcall optindexself
+		return [[
+(function(t, k, ...)
+	if t == nil then return nil end
+	local f = t[k]
+	if f == nil then return nil end
+	return f(t, ...)
+end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+		-- indexself key is a Lua string so ... lazy I know
+	else
+		-- TODO optcall indexself ...
+		-- optcall anything else
+		return [[
+(function(f, ...)
+	if f == nil then return nil end
+	return f(...)
+end)(]]..table{self.func}:append(self.args):mapi(apply):concat','..')'
+	end
+end
 
+-- and for optindexself to work, now I have to add exceptions to call...
+local _call = ast._call:subclass()
+ast._call = _call
+function _call:serialize(apply)
+	local func = self.func
+	if ast._optindexself:isa(func) then
+		return [[
+(function(t, k, ...)
+	if t == nil then return nil end
+	return t[k](t, ...)
+end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+	else
+		return _call.super.serialize(self, apply)
+	end
+end
 
 function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
@@ -403,14 +451,17 @@ function LuaFixedParser:parse_functiondef()
 end
 
 require 'ext.load'.xforms:insert(function(data, source)
-	local result
+	local parser, tree, result
 	assert(xpcall(function()
-		local tree = LuaFixedParser.parse(data, source)
+		parser =  LuaFixedParser()
+		parser:setData(data, source)
+		tree = parser.tree
 		result = tree:toLua()
 --DEBUG: print('\n'..source..'\n'..showcode(result)..'\n')
 	end, function(err)
 		return (source or '[]')..'\n'
 			..(data and ('data:\n'..showcode(data)..'\n') or '')
+			..(parser and not tree and (' at '..parser.t:getpos()..'\n') or '')
 			..(result and ('result:\n'..showcode(result)..'\n') or '')
 			..err..'\n'
 			..debug.traceback()

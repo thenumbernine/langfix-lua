@@ -88,11 +88,26 @@ do
 	asserteq(a?.b?['c'], 'bar')
 end
 --]]
---[[ safe-navigation call operators
-	asserteq(a?(), nil)
-	asserterror(a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
-	asserteq(a?.b?.c?(), nil)
-	asserteq(a?.b?:c?(), nil)
+-- [[ safe-navigation call operators
+do
+	local a = nil
+	asserteq(a?(), nil)			-- optcall
+
+	asserterror(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+
+	local a = {}
+	asserterror(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+
+	asserteq(a?.b?(), nil)		-- optcall optindex
+	asserteq(a?.b?.c?(), nil)	-- optcall optindex
+
+	asserteq(a.b?(), nil)		-- optcall index
+
+	asserteq(a?.b?:c?(), nil)	-- optcall optindexself absent
+
+	a.b = |x| asserteq(x, a)
+	a?:b()						-- call optindexself present
+--	a?:b?()						-- optcall optindexself present
 end
 --]]
 --[[ safe-navigation write operators ...
