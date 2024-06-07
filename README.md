@@ -3,14 +3,17 @@ Transpiled language because I'm lazy.
 Transpile to LuaJIT and not C or anything compiled because I still want `load()` access. (Sorry NeLua)
 
 So this is basically NeLua or MetaLua, but everything is pure Lua -- no external compiling required.
+
 PRO:
 - Now you can use `load()`.  You can't in NeLua last I checked.
+
 CON:
 - It is centered around LuaJIT, which has not yet been ported to WASM last I checked.
 
 Biggest pain points of Lua?
-- one-based tables.
-- global scope by default.
+- Missing some convenience operators.
+- One-based tables.
+- Global scope by default.
 - (LuaJIT) no bit operators.
 
 Features:
