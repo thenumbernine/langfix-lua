@@ -10,13 +10,8 @@ PRO:
 CON:
 - It is centered around LuaJIT, which has not yet been ported to WASM last I checked.
 
-Biggest pain points of Lua?
-- Missing some convenience operators.
-- One-based tables.
-- Global scope by default.
-- (LuaJIT) no bit operators.
-
 Features:
+- Works on Lua or LuaJIT as-is, nothing needs to be compiled.  Backwards-compatible with old Lua(/JIT) code.
 - bit operators that get implicitly converted to `bit.*` calls: `& | << >> >>>`.  They don't work with metatmethods (yet?).
 - Assign-to operators: `..= += -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
 - shorthand single-expression: `|x,y| x+y`.
@@ -31,7 +26,6 @@ Complementing Features (in other libraries):
 
 TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
-- Legit ternary operator: `a ? b : c` but safe for boolean types?
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).
 	- Maybe a first-line-comment for something like `use strict`, to specify what features should be on or off, as an exception to whatever default setting.
@@ -41,5 +35,6 @@ TODO
 - Maybe some shorthand for ctype array/ptr construction based on the type? i.e. `char` is equivalent to `ffi.typeof'char'` and char:ptr() makes `'char*'` type, and `char:ar(10)` makes `char[10]` type.
 	In pure Lua this would mean changing the ctype metatable, which LuaJIT goes way out of their way to mess with (having metatable() return strings, so you have to use debug.metatable() .... why?!?!?!)
 - Better coroutine iteration for ranges, something more like luafun, or just make this whole thing compatible with luafun.
-- Think of a new extension to use?
+- Think of a new file extension to use?
+- How about a legit ternary operator: `a ? b : c` but safe for boolean types?
 - How about ++ etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
