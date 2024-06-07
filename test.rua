@@ -72,10 +72,24 @@ do
 	local a = nil
 	asserteq(a?.b, nil)
 	asserteq(a?['b'], nil)
-	asserteq(a?(), nil)
+	asserteq(a?.b?.c, nil)
+	asserteq(a?['b']?.c, nil)
+	asserteq(a?.b?['c'], nil)
 
 	local a = {}
 	asserteq(a?.b?.c, nil)
+	a.b = 'foo'
+	asserteq(a?.b, 'foo')
+	asserteq(a?['b'], 'foo')
+	a.b = {}
+	a.b.c = 'bar'
+	asserteq(a?.b?.c, 'bar')
+	asserteq(a?['b']?.c, 'bar')
+	asserteq(a?.b?['c'], 'bar')
+end
+--]]
+--[[ safe-navigation call operators
+	asserteq(a?(), nil)
 	asserterror(a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 	asserteq(a?.b?.c?(), nil)
 	asserteq(a?.b?:c?(), nil)

@@ -201,6 +201,13 @@ ast._optcall.type = 'optcall'
 
 ast._optindex = ast._index:subclass()
 ast._optindex.type = 'optindex'
+function ast._optindex:serialize(apply)
+	return [[
+(function(k,v)
+	if k == nil then return nil end
+	return k[v]
+end)(]]..apply(self.expr)..','..apply(self.key)..')'
+end
 
 ast._optindexself = ast._indexself:subclass()
 ast._optindexself.type = 'optindexself'
