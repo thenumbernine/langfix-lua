@@ -473,7 +473,7 @@ function LuaFixedParser:parse_functiondef()
 	return LuaFixedParser.super.parse_functiondef(self)
 end
 
-require 'ext.load'.xforms:insert(function(data, source)
+require 'ext.load'().xforms:insert(function(data, source)
 	local parser, tree, result
 	assert(xpcall(function()
 		parser =  LuaFixedParser()
