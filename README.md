@@ -4,6 +4,28 @@
 This Lua/JIT library adds new language features to Lua.  It is completely pure Lua and requires no external compilation.
 It's backwards-compatible with old Lua(/JIT) code.
 
+### How to use it?
+
+You can use
+
+``` sh
+lua -llangfix $filename
+```
+
+or
+
+``` sh
+lua -llangfix -e $code
+```
+and immediately start using the language features.
+
+Alternatively, within a Lua file, you can call
+
+``` Lua
+require 'langfix'
+```
+and then from that point on, all subsequent `require`'d and `load`'d code will be able to use the new language features.
+
 ### How it does it?
 It operates using my [`lua-ext`](https://github.com/thenumbernine/lua-ext)'s `ext.load` shim layer to modify the `load`, `loadfile`, `loadstring` (if present), and `require` functions.
 With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernine/lua-parser) library to transpile the new language operators into old language operators.  Your code loading might take a small performance hit, but at runtime fingers crossed you should not notice any performance change.
