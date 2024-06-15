@@ -1,30 +1,21 @@
-Transpiled language because I'm lazy.
+# Lua Language Fix
 
-Transpile to LuaJIT and not C or anything compiled because I still want `load()` access. (Sorry NeLua)
+### What it does?
+This Lua/JIT library adds new language features to Lua.  It is completely pure Lua and requires no external compilation.
+It's backwards-compatible with old Lua(/JIT) code.
 
-So this is basically NeLua or MetaLua, but everything is pure Lua -- no external compiling required.
+### How it does it?
+It operates using my [`lua-ext`](https://github.com/thenumbernine/lua-ext)'s `ext.load` shim layer to modify the `load`, `loadfile`, `loadstring` (if present), and `require` functions.
+With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernine/lua-parser) library to transpile the new language operators into old language operators.  Your code loading might take a small performance hit, but at runtime fingers crossed you should not notice any performance change.
 
-PRO:
-- Now you can use `load()`.  You can't in NeLua last I checked.
+### New Language Features:
+- Bit operators `&`, `|`, `<<`, `>>`, `>>>`.  These get implicitly converted to `bit.*` calls: .  They don't work with metatmethods (yet?).
+- Assign-to operators: `..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
+- Lambdas as single-expressions: `|x,y| x+y`.
+- Lambdas as multi-statements: `|x,y| do return x+y end`.
+- "Safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
-CON:
-- It is centered around LuaJIT, which has not yet been ported to WASM last I checked.
-
-Features:
-- Works on Lua or LuaJIT as-is, nothing needs to be compiled.  Backwards-compatible with old Lua(/JIT) code.
-- bit operators that get implicitly converted to `bit.*` calls: `& | << >> >>>`.  They don't work with metatmethods (yet?).
-- Assign-to operators: `..= += -= *= /= //= %= ^= &= |= <<= >>= >>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
-- shorthand single-expression: `|x,y| x+y`.
-- shorthand multi-statement: `|x,y| do return x+y end`.
-- "safe-navigation operator" `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
-
-Complementing Features (in other libraries):
-- https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
-- `luajit -lext.debug` syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
-- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in 
-- https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
-
-TODO
+### TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).
@@ -37,4 +28,11 @@ TODO
 - Better coroutine iteration for ranges, something more like luafun, or just make this whole thing compatible with luafun.
 - Think of a new file extension to use?
 - How about a legit ternary operator: `a ? b : c` but safe for boolean types?
-- How about ++ etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
+- How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
+- I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
+
+### Complementing Features In Other Libraries:
+- https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
+- `luajit -lext.debug` syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
+- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in
+- https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
