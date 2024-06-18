@@ -1,2 +1,2 @@
 -- apply to global env
-require 'langfix.env'()
+return require 'langfix.env'()

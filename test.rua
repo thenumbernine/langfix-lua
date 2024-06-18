@@ -143,4 +143,6 @@ end
 -- int ctype global
 if int then asserttableieq({(|x,y| do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
 
+--print:o(|x|x+1):bind(1)()
+
 print'done'
