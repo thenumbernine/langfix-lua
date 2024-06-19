@@ -33,8 +33,10 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 ### New Language Features:
 - Bit operators `&`, `|`, `<<`, `>>`, `>>>`.  These get implicitly converted to `bit.*` calls: .  They don't work with metatmethods (yet?).
 - Assign-to operators: `..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
+- Lambdas as multiple-statements: `[x,y] do return x+y end`.
 - Lambdas as single-expressions: `[x,y] x+y`.
-- Lambdas as multi-statements: `[x,y] do return x+y end`.
+- Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `[x,y](x+y,x-y)`.
+- Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
 - "Safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
 ### TODO

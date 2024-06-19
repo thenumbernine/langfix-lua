@@ -434,7 +434,21 @@ return function(env)
 		-- but then with a proper function body, none of this single-expression python lambda bullshit
 		if self:canbe('[', 'symbol') then
 
-			local args = self:parse_parlist() or table()
+			-- see if there's a : arg to hack in a 'self'
+			local args, selffirst
+			if self:canbe(':', 'symbol') then
+				selffirst = true
+				if self:canbe(',', 'symbol') then
+					args = self:parse_parlist()
+				end
+			else
+				args = self:parse_parlist()
+			end
+			args = args or table()
+			if selffirst then
+				args:insert(1, ast._var'self')
+			end
+
 			local lastArg = args:last()
 			local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
 			self:mustbe(']', 'symbol')
