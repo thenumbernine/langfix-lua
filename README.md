@@ -33,8 +33,8 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 ### New Language Features:
 - Bit operators `&`, `|`, `<<`, `>>`, `>>>`.  These get implicitly converted to `bit.*` calls: .  They don't work with metatmethods (yet?).
 - Assign-to operators: `..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
-- Lambdas as single-expressions: `|x,y| x+y`.
-- Lambdas as multi-statements: `|x,y| do return x+y end`.
+- Lambdas as single-expressions: `[x,y] x+y`.
+- Lambdas as multi-statements: `[x,y] do return x+y end`.
 - "Safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
 ### TODO
@@ -52,6 +52,11 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - How about a legit ternary operator: `a ? b : c` but safe for boolean types?
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
+- I'm still thinking how to handle lambdas that are single-expression multiple-return-value.
+	If I allow them as `[x]x+1,x+2` then when parsing lambdas in arguments, all successive arguments get lumped into the lambda's multiple-return.
+		This gets avoided if I wrap the lambda in ()'s, but then I have to wrap all lambdas being passed into function arguments with ()'s.
+	Maybe I would require an extra () around the multiple-return arguments of a single-expression multiple-return lambda, but then that would cause a truncated-multiple-return (i.e. `(...)` evaluates to just the first argument of `...`) to be wrapped in *two* parenthesis instead of just one as with Vanilla Lua.
+	(I.e. `[x](x+1, x+2)` would return two values, but then `[x]((assert(x, 'truncate')))` would be proper syntax to truncate the `'truncate'` string upon returning).
 
 ### Complementing Features In Other Libraries:
 - https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.

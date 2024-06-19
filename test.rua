@@ -1,20 +1,30 @@
 #!/usr/bin/env ./run.sh
 
 -- single-statement lambdas
-asserteq( (||1)(), 1)
-asserteq( (|x|x+1)(1), 2)
+asserteq( ([]1)(), 1)
+asserteq( ([x]x+1)(1), 2)
 
 -- single-statement lambda with multiple-return ... works
-assert(load[[ asserteq( (|x|x+1,x+2)(1), 2) ]])()
-assert(load[[ asserteq( select(2, (|x|x+1,x+2)(1)), 3) ]])()
--- but now for some reason multiple-return wrapped in parenthesis doesn't work ...
---assert(load[[ asserteq( (|x|(x+1, x+1))(1), 2) ]])()
+asserteq( ([x](x+1,x+2))(1), 2)
+asserteq( select(2, ([x](x+1,x+2))(1)), 3)
+asserteq( ([x](x+1, x+1))(1), 2)
+-- but now it takes two (( )) to truncate ...
+asserteq( select(2, ([...](...))(1,2)), 2 )
+asserteq( select(2, ([...]((...)))(1,2)), nil )
+-- also, with single-expr mult-ret, two successive lambdas passed as args don't work anymore.
+-- the 2nd lambda becomes a 2nd mult-ret of the 1st lambda
+asserteq(2, select('#', 1, 1))
+asserteq(2, select('#', []1, []1))
+-- so I think I'll disable single-expr mult-ret ...
+-- ... *MAYBE* I'll add it with syntactic sugar, like extra parenthesis, 
+--		like [x](x+1,x+2) is a single-expr mult-ret.
+-- 		the irony is that typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
 
 -- multiple-statement lamda
-asserteq( (|n| do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
+asserteq( ([n] do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
 
 -- function metamethods (in ext)
-local g = (|x|x+1) * (|x|x-1)
+local g = ([x]x+1) * ([x]x-1)
 -- function g(x) = (x+1)*(x-1)
 asserteq(g(2), (2+1)*(2-1))
 asserteq(g(3), (3+1)*(3-1))
@@ -42,8 +52,8 @@ do
 end
 
 --[=[ bit operator metamethods ... not supported yet
-local g = (|x|x+1) << (|x|x-1)
--- g = |x| (x+1)*(x-1)
+local g = ([x]x+1) << ([x]x-1)
+-- g = [x] (x+1)*(x-1)
 asserteq(g(2), (2+1) << (2-1))
 asserteq(g(3), (3+1) << (3-1))
 --]=]
@@ -55,10 +65,10 @@ if int then asserteq(int(7)/int(2), int(3)) end
 --print(7//2, 3)
 
 -- lambda + function-operator
-asserteq(((|x|x+1) * (|x|x-1))(3), 8)
+asserteq((([x]x+1) * ([x]x-1))(3), 8)
 
 -- function operators
-asserteq((|x,y|x+y):bind(2)(3), 5)
+asserteq(([x,y]x+y):bind(2)(3), 5)
 
 --[=[ TODO test locals-as-default
 -- but that should be shimming using require(), not load(), so I do need to move its scope to load() as well ...
@@ -96,10 +106,10 @@ do
 	local a = nil
 	asserteq(a?(), nil)			-- optcall
 
-	asserterror(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	asserterror([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
 	local a = {}
-	asserterror(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	asserterror([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
 	asserteq(a?.b?(), nil)		-- optcall optindex
 	asserteq(a?.b?.c?(), nil)	-- optcall optindex
@@ -108,7 +118,7 @@ do
 
 	asserteq(a?.b?:c?(), nil)	-- optcall optindexself absent
 
-	a.b = |x| asserteq(x, a)
+	a.b = [x] asserteq(x, a)
 	asserteq(a?:b(), a)				-- call optindexself present
 	asserteq(a?.b(a), a)			-- call optindex present
 	asserteq(a?.b?(a), a)			-- optcall optindex present
@@ -141,8 +151,8 @@ end
 -- :bind(), :co() function metatable
 -- :resume() thread metatable
 -- int ctype global
-if int then asserttableieq({(|x,y| do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
+if int then asserttableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
 
---print:o(|x|x+1):bind(1)()
+--print:o([x]x+1):bind(1)()
 
 print'done'

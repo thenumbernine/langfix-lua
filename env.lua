@@ -430,14 +430,14 @@ return function(env)
 	-- lambdas
 	function LuaFixedParser:parse_functiondef()
 		local from = self:getloc()
-		-- metalua format |args|
+		-- metalua format [args]
 		-- but then with a proper function body, none of this single-expression python lambda bullshit
-		if self:canbe('|', 'symbol') then
+		if self:canbe('[', 'symbol') then
 
 			local args = self:parse_parlist() or table()
 			local lastArg = args:last()
 			local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
-			self:mustbe('|', 'symbol')
+			self:mustbe(']', 'symbol')
 
 			local block
 			if self:canbe('do', 'keyword') then
@@ -446,26 +446,48 @@ return function(env)
 				asserteq(self.functionStack:remove(), functionType)
 				self:mustbe('end', 'keyword')
 			else
-				-- implicit return of single-expression
-				-- should this allow return-single or return-multiple?
-				-- i.e. should commas precedence be to include in the expression or should they become outside the function?
-				-- outside I think for ambiguity.
-				-- though inside would be more flexible ... |x,y,z|x,y,z returns 3 args ...
-				--[[ will require parentehsis to wrap
-				local exp = self:parse_prefixexp()
-				assert(exp, "expected expression")
-				block = {ast._return(exp)}
-				--]]
-				--[[ won't require parenthesis to wrap
-				local exp = self:parse_exp()
-				assert(exp, "expected expression")
-				block = {ast._return(exp)}
-				--]]
-				-- [[
-				local explist = self:parse_explist()			-- won't require
-				assert(explist, "expected expression")
-				block = {ast._return(table.unpack(explist))}
-				--]]
+				
+				-- maybe I'll say "if there's an initial ( then expect a mult-ret"
+				-- so `[x](x+1,x+2,x+3)` is a single-expression that returns 3
+				-- however default Lua behavior is that extra () will truncate mult-ret
+				-- i.e. `return (x+1, x+2, x+3)` will just return x+1
+				-- that would mean, with () for single-expression lambda with multiple-return,
+				-- to truncate another multiple-return, you'd have to wrap in *two* sets of (())'s
+				-- i.e. `[...]((...))` would return just the first argument of ...
+				-- while `[...](...)` would mult-ret all arguments
+				-- and `[...](1, ...)` would mult-ret `1` concatenated to all arguments
+				-- and `[...]1, ...` would just return `1` and that 2nd `...` would belong to the scope outside the lambda.
+				if self:canbe('(', 'symbol') then
+					local explist = self:parse_explist()
+					assert(explist, "expected expression")
+					block = {ast._return(table.unpack(explist))}
+					self:mustbe(')', 'symbol')
+				else
+					-- implicit return of single-expression
+					-- should this allow return-single or return-multiple?
+					-- i.e. should commas precedence be to include in the expression or should they become outside the function?
+					-- outside I think for ambiguity.
+					-- though inside would be more flexible ... [x,y,z]x,y,z returns 3 args ...
+					--[[ will require parentehsis to wrap
+					local exp = self:parse_prefixexp()
+					assert(exp, "expected expression")
+					block = {ast._return(exp)}
+					--]]
+					-- [[ won't require parenthesis to wrap
+					local exp = self:parse_exp()
+					assert(exp, "expected expression")
+					block = {ast._return(exp)}
+					--]]
+					--[[ mult-ret, doesn't require () to wrap the return, 
+					-- but successive ,'s after will get lumped into the mult-ret 
+					--  such that it can only be separted from them by wrapping the whole lambda in ()'s
+					-- i.e. `[x]x, [x]x` is a single-lambda that returns x and [x]x
+					-- (instead of two separate comma-separated expressions)
+					local explist = self:parse_explist()
+					assert(explist, "expected expression")
+					block = {ast._return(table.unpack(explist))}
+					--]]
+				end
 			end
 
 			return self:makeFunction(nil, args, table.unpack(block))
