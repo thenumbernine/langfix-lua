@@ -36,6 +36,10 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - Lambdas as multiple-statements: `[x,y] do return x+y end`.
 - Lambdas as single-expressions: `[x,y] x+y`.
 - Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `[x,y](x+y,x-y)`.
+	This means the Lua truncate-multiple-arguments operation of wrapping with extra `()` will take a second set of parenthesis.
+	- A lambda that returns vararg will look like `[...]...`.
+	- A lambda that returns an extra value prepended to a vararg will look like `[...]('x', ...)`.
+	- A lambda that truncates to the first value of a vararg will look like `[...]((...))`.
 - Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
 - "Safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
@@ -61,7 +65,9 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	(I.e. `[x](x+1, x+2)` would return two values, but then `[x]((assert(x, 'truncate')))` would be proper syntax to truncate the `'truncate'` string upon returning).
 
 ### Complementing Features In Other Libraries:
-- https://github.com/thenumbernine/lua-ext `luajit -lext`: default operators for functions, coroutines, etc.
-- `luajit -lext.debug` syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
-- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in
-- https://github.com/thenumbernine/lua-local-default `luajit -llocal-default` local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
+- [`lua-ext`](https://github.com/thenumbernine/lua-ext):
+	- `luajit -lext`: default operators for functions, coroutines, etc.
+	- `luajit -lext.debug` syntax for running things in debug-mode, or maybe even more of this, like types and type-checking upon-load()
+	- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in
+- [`lua-local-default`](https://github.com/thenumbernine/lua-local-default):
+	- `luajit -llocal-default`: local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
