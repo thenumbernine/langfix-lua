@@ -22,11 +22,12 @@ package.path = parts:concat';'
 
 -- shift global args
 local oldarg = arg
-arg = {[0]=oldarg[1], table.unpack(arg, 2)}
+arg = {table.unpack(arg, 1)}
 
 -- TODO here handle all flags, stop at -- or filename
 
 local fn
+local usedE 
 do
 	local i = 1
 	while i <= #arg do
@@ -36,6 +37,7 @@ do
 			-- -ecode
 			if #s > 2 then
 				assert(load(s:sub(3)))(select(2, ...))
+				usedE = true
 				table.remove(arg, i)
 				i = i - 1
 			else
@@ -43,7 +45,8 @@ do
 				if i == #arg then
 					-- print help
 				else
-					assert(load(arg[i+1]))(select(2, ...))
+					assert(load(arg[i+1]))()
+					usedE = true
 					table.remove(arg, i)
 					table.remove(arg, i)
 					i = i - 1
@@ -58,10 +61,13 @@ do
 	end
 end
 if not fn then
-	-- interpretive mode here
-	require 'interpreter'(_G)
+	if not usedE then
+		-- interpretive mode here
+		require 'interpreter'(_G)
+	end
 elseif not path(fn):exists() then
+	arg[0] = fn
 	io.stderr:write('lua: cannot open '..fn..': No such file or directory')
 else
-	assert(loadfile(fin))(select(2, ...))
+	assert(loadfile(fn))(table.unpack(arg))
 end
