@@ -75,7 +75,7 @@ if not fn then
 	end
 elseif not path(fn):exists() then
 	arg[0] = fn
-	io.stderr:write('lua: cannot open '..fn..': No such file or directory')
+	io.stderr:write('lua: cannot open '..fn..': No such file or directory\n')
 else
 
 	assert(loadfile(fn))(table.unpack(arg))
