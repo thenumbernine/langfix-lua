@@ -21,13 +21,16 @@ end
 package.path = parts:concat';'
 
 -- shift global args
+--print('arg', require 'ext.tolua'(arg))
 local oldarg = arg
+local runarg = arg[1]	-- file being run ...
 arg = {table.unpack(arg, 1)}
+--print('arg', require 'ext.tolua'(arg))
 
 -- TODO here handle all flags, stop at -- or filename
 
 local fn
-local usedE 
+local usedE
 do
 	local i = 1
 	while i <= #arg do
@@ -56,10 +59,15 @@ do
 			-- if it's a flag then handle it
 			-- otherwise stop and this is our filename
 			fn = s
+			-- but if we handle it then every index after it is the arsg right?
+			arg = {table.unpack(arg, i+1)}
+			break
 		end
 		i = i + 1
 	end
 end
+--print('arg', require 'ext.tolua'(arg))
+--print('fn', fn)
 if not fn then
 	if not usedE then
 		-- interpretive mode here
@@ -69,5 +77,6 @@ elseif not path(fn):exists() then
 	arg[0] = fn
 	io.stderr:write('lua: cannot open '..fn..': No such file or directory')
 else
+
 	assert(loadfile(fn))(table.unpack(arg))
 end
