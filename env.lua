@@ -453,14 +453,15 @@ return function(env)
 			local functionType = lastArg and lastArg.type == 'vararg' and 'function-vararg' or 'function'
 			self:mustbe(']', 'symbol')
 
+			self.functionStack:insert(functionType)
+
 			local block
 			if self:canbe('do', 'keyword') then
-				self.functionStack:insert(functionType)
 				block = self:parse_block(functionType)
-				asserteq(self.functionStack:remove(), functionType)
 				self:mustbe('end', 'keyword')
 			else
-				
+				-- TODO will I run into blockStack issues here, since I'm not pushing/popping it?
+
 				-- maybe I'll say "if there's an initial ( then expect a mult-ret"
 				-- so `[x](x+1,x+2,x+3)` is a single-expression that returns 3
 				-- however default Lua behavior is that extra () will truncate mult-ret
@@ -492,8 +493,8 @@ return function(env)
 					assert(exp, "expected expression")
 					block = {ast._return(exp)}
 					--]]
-					--[[ mult-ret, doesn't require () to wrap the return, 
-					-- but successive ,'s after will get lumped into the mult-ret 
+					--[[ mult-ret, doesn't require () to wrap the return,
+					-- but successive ,'s after will get lumped into the mult-ret
 					--  such that it can only be separted from them by wrapping the whole lambda in ()'s
 					-- i.e. `[x]x, [x]x` is a single-lambda that returns x and [x]x
 					-- (instead of two separate comma-separated expressions)
@@ -504,6 +505,8 @@ return function(env)
 				end
 			end
 
+			asserteq(self.functionStack:remove(), functionType)
+
 			return self:makeFunction(nil, args, table.unpack(block))
 				:setspan{from = from, to = self:getloc()}
 		end
@@ -513,7 +516,7 @@ return function(env)
 	require 'ext.load'(env).xforms:insert(function(data, source)
 		local parser, tree, result
 		assert(xpcall(function()
-			parser =  LuaFixedParser()
+			parser = LuaFixedParser()
 			parser:setData(data, source)
 			tree = parser.tree
 			result = tree:toLua()

@@ -16,9 +16,12 @@ asserteq( select(2, ([...]((...)))(1,2)), nil )
 asserteq(2, select('#', 1, 1))
 asserteq(2, select('#', []1, []1))
 -- so I think I'll disable single-expr mult-ret ...
--- ... *MAYBE* I'll add it with syntactic sugar, like extra parenthesis, 
+-- ... *MAYBE* I'll add it with syntactic sugar, like extra parenthesis,
 --		like [x](x+1,x+2) is a single-expr mult-ret.
 -- 		the irony is that typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
+
+local I = [...]...
+asserteq( ([...]I(I(...)))(1), 1)
 
 -- multiple-statement lamda
 asserteq( ([n] do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
@@ -127,6 +130,10 @@ do
 	asserteq(a?.b(a), a)			-- call optindex present
 	asserteq(a?.b?(a), a)			-- optcall optindex present
 	asserteq(a?:b?(), a)			-- optcall optindexself present
+	asserteq(a?['b']?(a, a), a)
+	local k = 'b'
+	asserteq(a?[k]?(a, a), a)
+	-- TODO false positive warning, all these ?. and ?[] and ?()'s cannot exist as statements, but only as arguments to functions
 end
 --]]
 --[[ safe-navigation write operators ...
