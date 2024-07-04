@@ -49,13 +49,12 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - Make each feature optional.  Bit-operators, single-expression-lambads, multi-expression-lambdas, `lua-ext` metatables, local-by-default, etc.   And maybe make that specifyable at runtime (for code modularity).
 	- Maybe a first-line-comment for something like `use strict`, to specify what features should be on or off, as an exception to whatever default setting.
 - Metamethods for bit operators? but I suspect that will take too much runtime-changes, like testing each argument for a metamethod field, optionally calling, etc, and it would ruin performance.
-- Somehow get this to work with the interpreter and with `-e` support.
 - Zero-based indexing.  list literals shift their integer keys to initialize to be zero-based.  likewise they invoke a wrapper for a zero-based metamethod object.  `select` also shifts its indexes by 1.
 - Maybe some shorthand for ctype array/ptr construction based on the type? i.e. `char` is equivalent to `ffi.typeof'char'` and char:ptr() makes `'char*'` type, and `char:ar(10)` makes `char[10]` type.
 	In pure Lua this would mean changing the ctype metatable, which LuaJIT goes way out of their way to mess with (having metatable() return strings, so you have to use debug.metatable() .... why?!?!?!)
 - Better coroutine iteration for ranges, something more like luafun, or just make this whole thing compatible with luafun.
 - Think of a new file extension to use?
-- How about a legit ternary operator: `a ? b : c` but safe for boolean types?
+- How about a legit ternary operator: `a ? b : c` but safe for boolean types?  However this syntax could clash with safe-navigation operator combined with index-by-value, i.e. `a?[b]:c()` could be evaluated as `a and a[b]:c()` or as `a and a[b] or c()`.
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 - I'm still thinking how to handle lambdas that are single-expression multiple-return-value.
