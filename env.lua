@@ -128,6 +128,10 @@ return function(env)
 		end
 	end
 
+	local function commasep(exprs, apply)
+		return table.mapi(exprs, apply):concat','
+	end
+
 	do
 		local _ternary = ast._op:subclass()
 		_ternary.type = 'ternary'
@@ -137,9 +141,9 @@ return function(env)
 			return [[
 (function(t)
 	if t then
-		return ]]..(b and apply(b) or 't')..[[
+		return ]]..(b and commasep(b, apply) or 't')..[[
 	else
-		return ]]..(c and apply(c))..[[
+		return ]]..(c and commasep(c, apply) or '')..[[
 	end
 end)(]]..apply(a)..[[)
 ]]
@@ -403,20 +407,35 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 		--if self:canbe('?', 'symbol') then
 		-- TODO can't use ? or it messes with safe-navigation ... or I could change safe-navigation ...
 		if self:canbe('??', 'symbol') then
+
+			-- if we get a ( then handle many and expect a )
+			-- if we don't then just expect one
+			-- same logic as with single-expression lambdas
+			local function parseOneOrMany(msg)
+				local c
+				if self:canbe('(', 'symbol') then
+					c = self:parse_explist()
+					assert(c, msg)
+					self:mustbe(')', 'symbol')
+				else
+					c = self:parse_exp_or()
+					assert(c, msg)
+					c = table{c}
+				end
+				return c
+			end
+
 			local b, c
 			if self:canbe(':', 'symbol') then
 				-- skip 'b':
-				c = self:parse_exp_or()
-				assert(c, "expected a ??: c")
+				c = parseOneOrMany"expected a ??: c"
 			else
 				--local b = self:parse_exp_or()
-				b = self:parse_exp_or()
-				assert(b, "expected a ?? b : c or a ??: c")
+				b = parseOneOrMany"expected a ?? b : c or a ??: c"
 
 				-- should I allow the ternary to not provide an 'else', and it default to nil?
 				if self:canbe(':', 'symbol') then
-					c = self:parse_exp_or()
-					assert(c, "expected a ?? b : c or a ??: c")
+					c = parseOneOrMany"expected a ?? b : c or a ??: c"
 				end
 			end
 

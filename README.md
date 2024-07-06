@@ -33,6 +33,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 ### New Language Features:
 - Bit operators `&`, `|`, `<<`, `>>`, `>>>`.  These get implicitly converted to `bit.*` calls: .  They don't work with metatmethods (yet?).
 - Assign-to operators: `..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`.  Works with vararg assignment too: `a,b,c += 1,2,3`.
+	- assign-to-xor's symbol `~=` was already taken as not-equals, so I switched the assign-to-xor symbol to `~~=`.  Coincidentally, in math notation, xor is sometimes represented as a not-equals symbol.
 - Lambdas as multiple-statements: `[x,y] do return x+y end`.
 - Lambdas as single-expressions: `[x,y] x+y`.
 - Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `[x,y](x+y,x-y)`.
@@ -45,6 +46,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- "safe-navigation-assign operator": `a?.b:c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
 - Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-navigation and ternary clash, so does safe-navigation and self-call, so does ternary and lambdas ...
 	- Ternary 2nd argument defaults to the 1st.  `a ??: b` returns `a` if present, `b` otherwise.
+	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis.
 
 ### TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
