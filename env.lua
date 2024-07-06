@@ -5,6 +5,7 @@ return function(env)
 	local table = require 'ext.table'
 	local asserteq = require 'ext.assert'.eq
 	local assertindex = require 'ext.assert'.index
+	local template = require 'template'
 	local showcode = require 'template.showcode'
 	local LuaParser = require 'parser.lua.parser'
 	local LuaTokenizer = require 'parser.lua.tokenizer'
@@ -132,21 +133,34 @@ return function(env)
 		return table.mapi(exprs, apply):concat','
 	end
 
+-- if I'm going to inject code into the ternary / safe-navigation evaluation then tehre's a risk that the code's vars will shadow outer scope vars ...
+-- but if I don't inject code and just use lambda vars, then we don't short-circuit any evaluation at all
+-- I could do both by using load() everywhere, but, that seems very slow
+local reg1 = '__tmplambdaregister__'
+local reg2 = '__tmplambdaregister2__'
+local reg3 = '__tmplambdaregister3__'
+
 	do
 		local _ternary = ast._op:subclass()
 		_ternary.type = 'ternary'
 		ast._ternary = _ternary
 		function _ternary:serialize(apply)
-			local a, b, c = table.unpack(self, 1, 3)
-			return [[
-(function(t)
-	if t then
-		return ]]..(b and commasep(b, apply) or 't')..[[
+			return template([[
+(function(<?=reg1?>)
+	if <?=reg1?> then
+		return <?=self[2] and commasep(self[2], apply) or reg1?>
 	else
-		return ]]..(c and commasep(c, apply) or '')..[[
+		return <?=self[3] and commasep(self[3], apply) or ''?>
 	end
-end)(]]..apply(a)..[[)
-]]
+end)(<?=apply(self[1])?>)
+]],			{
+				self = self,
+				apply = apply,
+				commasep = commasep,
+				reg1 = reg1,
+				reg2 = reg2,
+				reg3 = reg3,
+			})
 		end
 	end
 
@@ -169,20 +183,27 @@ end)(]]..apply(a)..[[)
 	ast._optindex = ast._index:subclass()
 	ast._optindex.type = 'optindex'
 	function ast._optindex:serialize(apply)
-		return [[
-(function(t, k)
-	if t == nil then
+		return template([[
+(function(<?=reg1?>, <?=reg2?>)
+	if <?=reg1?> == nil then
 		return nil
 	end
-	local v = t[k]
-]]..(self.optassign and ([[
-	if v == nil then
-		v = ]]..self.optassign..[[
-		t[k] = v
+	local <?=reg3?> = <?=reg1?>[<?=reg2?>]
+<? if self.optassign then ?>
+	if <?=reg3?> == nil then
+		<?=reg3?> = <?=self.optassign?>
+		<?=reg1?>[<?=reg2?>] = <?=reg3?>
 	end
-]]) or '')..[[
-	return v
-end)(]]..apply(self.expr)..','..apply(self.key)..')'
+<? end ?>
+	return <?=reg3?>
+end)(<?=apply(self.expr)?>, <?=apply(self.key)?>)
+]], 	{
+			self = self,
+			apply = apply,
+			reg1 = reg1,
+			reg2 = reg2,
+			reg3 = reg3,
+		})
 	end
 
 	-- ok here's where I start to break things
@@ -194,20 +215,28 @@ end)(]]..apply(self.expr)..','..apply(self.key)..')'
 		-- this should only ever be placed under a call or optcall, which will handle it themselves
 		error('here with parent '..tostring(self.parent.type))
 		-- indexself key is a Lua string so don't apply()
-		return [[
-(function(t, k)
-	if t == nil then
+		return template([[
+(function(<?=reg1?>, <?=reg2?>)
+	if <?=reg1?> == nil then
 		return nil
 	end
-	local v = t[k]
-]]..(self.optassign and ([[
-	if v == nil then
-		v = ]]..self.optassign..[[
-		t[k] = v
+	local <?=reg3?> = <?=reg1?>[<?=reg2?>]
+<? if self.optassign then ?>
+	if <?=reg3?> == nil then
+		<?=reg3?> = <?=self.optassign?>
+		<?=reg1?>[<?=reg2?>] = <?=reg3?>
 	end
-]]) or '')..[[
-	return v
-end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
+<? end ?>
+	return <?=reg3?>
+end)(<?=apply(self.expr)?>, <?=ast._string(self.key)?>)
+]],		{
+			self = self,
+			ast = ast,
+			apply = apply,
+			reg1 = reg1,
+			reg2 = reg2,
+			reg3 = reg3,
+		})
 	end
 
 	-- subclass the original _call, not our new one ...
@@ -218,31 +247,52 @@ end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
 		local func = self.func
 		if ast._optindexself:isa(func) then
 			-- optcall optindexself
-			return [[
-(function(t, k, ...)
-	if t == nil then
+			return template([[
+(function(<?=reg1?>, <?=reg2?>, ...)
+	if <?=reg1?> == nil then
 		return nil
 	end
-	local v = t[k]
-	if v == nil then
-]]..(func.optassign and ([[
-		v = ]]..func.optassign..[[
-		t[k] = v
-	]]) or 'return nil')..[[
+	local <?=reg3?> = <?=reg1?>[<?=reg2?>]
+	if <?=reg3?> == nil then
+<? if func.optassign then ?>
+		<?=reg3?> = <?=func.optassign?>
+		<?=reg1?>[<?=reg2?>] = <?=reg3?>
+<? else ?>
+	return nil
+<? end ?>
 	end
-	return v(t, ...)
-end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+	return <?=reg3?>(<?=reg1?>, ...)
+end)(<?=table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','?>)
+]],			{
+				self = self,
+				func = func,
+				ast = ast,
+				apply = apply,
+				table = table,
+				reg1 = reg1,
+				reg2 = reg2,
+				reg3 = reg3,
+			})
 			-- indexself key is a Lua string so ... lazy I know
 		else
 			-- optcall anything else
 			-- can optassign go here? does it mean anything?
-			return [[
-(function(v, ...)
-	if v == nil then
+			return template([[
+(function(<?=reg1?>, ...)
+	if <?=reg1?> == nil then
 		return nil
 	end
-	return v(...)
-end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
+	return <?=reg1?>(...)
+end)(<?=table{func}:append(self.args):mapi(apply):concat','?>)
+]], 		{
+				self = self,
+				func = func,
+				apply = apply,
+				table = table,
+				reg1 = reg1,
+				reg2 = reg2,
+				reg3 = reg3,
+			})
 		end
 	end
 
@@ -252,21 +302,30 @@ end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
 	function _call:serialize(apply)
 		local func = self.func
 		if ast._optindexself:isa(func) then
-			return [[
-(function(t, k, ...)
-	if t == nil then
+			return template([[
+(function(<?=reg1?>, <?=reg2?>, ...)
+	if <?=reg1?> == nil then
 		return nil
 	end
-	local v = t[k]
-	if v == nil then
-]]..(func.optassign and ([[
-		v = ]]..func.optassign..[[
-		t[k] = v
-	]]) or '')	-- TODO if v is nil then ... bail out early?
-..[[
+	local <?=reg3?> = <?=reg1?>[<?=reg2?>]
+	if <?=reg3?> == nil then
+<? if func.optassign then ?>
+		<?=reg3?> = <?=func.optassign?>
+		<?=reg1?>[<?=reg2?>] = <?=reg3?>
+<? end -- TODO if reg3 is nil then ... bail out early? ?>
 	end
-	return v(t, ...)
-end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+	return <?=reg3?>(<?=reg1?>, ...)
+end)(<?=table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','?>)
+]],			{
+				self = self,
+				func = func,
+				apply = apply,
+				ast = ast,
+				table = table,
+				reg1 = reg1,
+				reg2 = reg2,
+				reg3 = reg3,
+			})
 		else
 			return _call.super.serialize(self, apply)
 		end
