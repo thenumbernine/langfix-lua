@@ -41,8 +41,10 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- A lambda that returns an extra value prepended to a vararg will look like `[...]('x', ...)`.
 	- A lambda that truncates to the first value of a vararg will look like `[...]((...))`.
 - Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
-- "Safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
-- Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-access and ternary clash, so does safe-access and self-call, so does ternary and lambdas ...
+- "safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
+	- "safe-navigation-assign operator": `a?.b:c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
+- Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-navigation and ternary clash, so does safe-navigation and self-call, so does ternary and lambdas ...
+	- Ternary 2nd argument defaults to the 1st, and 3rd argument defaults to nil.  `a ??: b` returns `a` if present, `b` otherwise.
 
 ### TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
@@ -58,13 +60,14 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 
-- can I make an operator to do this, since I do it often enough?
+- safe-navigation-or-assign ... can I make an operator to do this, since I do it often enough?
 	- `cache ?[l]:={} ?[m]:={} ?[i]:={} ?[j]:=[] do ... return c end`
 - ... maybe I don't need the `:`'s, since they will just be `or`, but if I omit them then could it be parsed as an assignment?
 - ... or maybe I do need `? :` ternary operators? despite parsing ambiguities...
 	- `cache ?[l]={} ?[m]={} ?[i]={} ?[j]=[] do ... return c end`
-- or if I merge ternary and safe-access then ...
+- or if I merge ternary and safe-navigation then ...
 	-  `((((cache[l]?:={})[m] ?:={})[i])?:={})[j]?:=[]do ... end`
+- `cache ?[l]:{} ?[m]:{} ?[i]:{} ?[j]:[] do ... return c end`
 
 
 ### Complementing Features In Other Libraries:

@@ -241,8 +241,17 @@ end)(]]..apply(a)..[[)
 	function ast._optindex:serialize(apply)
 		return [[
 (function(t, k)
-	if t == nil then return nil end
-	return t[k]
+	if t == nil then
+		return nil
+	end
+	local v = t[k]
+]]..(self.optassign and ([[
+	if v == nil then
+		v = ]]..self.optassign..[[
+		t[k] = v
+	end
+]]) or '')..[[
+	return v
 end)(]]..apply(self.expr)..','..apply(self.key)..')'
 	end
 
@@ -257,8 +266,17 @@ end)(]]..apply(self.expr)..','..apply(self.key)..')'
 		-- indexself key is a Lua string so don't apply()
 		return [[
 (function(t, k)
-	if t == nil then return nil end
-	return t[k]
+	if t == nil then
+		return nil
+	end
+	local v = t[k]
+]]..(self.optassign and ([[
+	if v == nil then
+		v = ]]..self.optassign..[[
+		t[k] = v
+	end
+]]) or '')..[[
+	return v
 end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
 	end
 
@@ -272,19 +290,28 @@ end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
 			-- optcall optindexself
 			return [[
 (function(t, k, ...)
-	if t == nil then return nil end
-	local f = t[k]
-	if f == nil then return nil end
-	return f(t, ...)
+	if t == nil then
+		return nil
+	end
+	local v = t[k]
+	if v == nil then
+]]..(func.optassign and ([[
+		v = ]]..func.optassign..[[
+		t[k] = v
+	]]) or 'return nil')..[[
+	end
+	return v(t, ...)
 end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
 			-- indexself key is a Lua string so ... lazy I know
 		else
-			-- TODO optcall indexself ...
 			-- optcall anything else
+			-- can optassign go here? does it mean anything?
 			return [[
-(function(f, ...)
-	if f == nil then return nil end
-	return f(...)
+(function(v, ...)
+	if v == nil then
+		return nil
+	end
+	return v(...)
 end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
 		end
 	end
@@ -297,8 +324,18 @@ end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
 		if ast._optindexself:isa(func) then
 			return [[
 (function(t, k, ...)
-	if t == nil then return nil end
-	return t[k](t, ...)
+	if t == nil then
+		return nil
+	end
+	local v = t[k]
+	if v == nil then
+]]..(func.optassign and ([[
+		v = ]]..func.optassign..[[
+		t[k] = v
+	]]) or '')	-- TODO if v is nil then ... bail out early?
+..[[
+	end
+	return v(t, ...)
 end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
 		else
 			return _call.super.serialize(self, apply)
@@ -449,6 +486,18 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 				prefixexp = clcall(prefixexp, table.unpack(args))
 					:setspan{from = from, to = self:getloc()}
 			end
+
+-- [[ safe-navigation suffix `:` for optional-assignment to the key if it doesn't exist
+-- if you just want optional value, use ternary / null-coalescence `??:`
+			if opt and self:canbe(':', 'symbol') then
+				if ast._optcall:isa(prefixexp) then
+					error("safe-navigation-assign only works after indexes, not calls")
+				end
+				local exp = self:parse_exp()
+				assert(exp, "safe-navigation-assignment ? : expected an expression")
+				prefixexp.optassign = exp
+			end
+--]]		
 		end
 
 		return prefixexp
@@ -479,7 +528,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 				-- should I allow the ternary to not provide an 'else', and it default to nil?
 				if self:canbe(':', 'symbol') then
 					c = self:parse_exp_or()
-					assert(b, "expected a ??: c, or a ?? b : c")
+					assert(c, "expected a ??: c, or a ?? b : c")
 				end
 			end
 

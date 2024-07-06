@@ -145,23 +145,29 @@ do
 	assert(not load'a.b = a.c?')	-- make sure the trailing ? is an error
 end
 --]]
---[[ safe-navigation write operators ...
+-- [[ safe-navigation-assignment
 do
-	a.foo = 'bar'
-	a.b = function(self)
-		asserteq(self.foo, 'bar')
-		return 'bar'
-	end
-	asserteq(a:b?(), 'bar')
+	local a = {}
+	asserteq(a.b, nil)	asserteq(a?.b : 2, 2)	asserteq(a.b, 2)
+	--optional-write
+	local d = {}
+	asserteq(a.c, nil)	asserteq(a?.c:d, d)	asserteq(a.c, d)
+	--optional-read without write using ternary operator
+	asserteq(a?.e?.f ??: d, d)	asserteq(a?.e?.f, nil)
 
-	-- write too?
+	-- optional-write chained:
+	local a = {}
+	asserteq(a?.b:{}?.c:{}?.d:2, 2)
+	asserteq(a.b.c.d, 2)
 
-	a = nil
-	a?.b = 'foo'		-- assert no error
-	a?.b?.c = 'foo'		-- assert no error and no assignment
-	a = {}
-	a?.b = 'foo'		-- assert no error
-	asserteq(a.b, 'foo')
+	-- optional-write and call?
+	local a = {}
+	--asserteq(a?.b:([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
+	asserteq((a?.b:([]4))(), 4)	-- this assigns the function to b ... () precedence
+	asserttype(a.b, 'function')
+	-- and what happens if we proceed a call with a : default value? idk? nothing?
+	assert(not load'asserteq(a.b?():5, 4)')
+	assert(not load'asserteq(a:b?():5, 4)')
 end
 --]]
 
@@ -175,9 +181,9 @@ do
 	asserteq(false ?? false : 2, 2)
 	asserteq(1 + 1 ?? false : 2, false)
 
-	-- ternary has parsing ambiguities with safe-access
+	-- ternary has parsing ambiguities with safe-navigation
 	-- I could resolve them maybe if I allowed rewinding tokens
-	-- it gets worse when you consider safe-access ?[] and ternary-with-lambdas ?[]
+	-- it gets worse when you consider safe-navigation ?[] and ternary-with-lambdas ?[]
 	local a = []nil
 	local tmp = a() ?? false : 2 asserteq(tmp, 2)
 	asserteq( a() ?? false : 2, 2)
@@ -199,6 +205,8 @@ do
 	asserteq(false ?? 1 : 2, 2)
 	asserteq(false ??: 2, 2)
 	asserteq(false ?? 1, nil)
+	assert(load'return false ??: false')
+	assert(not load'return false ??:')	-- 3rd arg must be provided
 end
 --]]
 
