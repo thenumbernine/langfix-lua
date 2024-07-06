@@ -24,7 +24,7 @@ return function(env)
 	-- I could insert >>> into the symbols and map it to luajit arshift ...
 	ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
 
-	local optoinfos = {
+	local optinfos = {
 		{'concatto', '..='},
 		{'addto', '+='},
 		{'subto', '-='},
@@ -36,16 +36,18 @@ return function(env)
 		{'bandto', '&='},
 		{'borto', '|='},
 		-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
+		-- coincidentally, xor is sometimes denoted as the not-equivalent symbol, because that's basically what it means, but how to distinguish between boolean and bitwise ...
 		-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
-		--{'bxorto', '~='},
+		{'bxorto', '~_='},
 		{'shlto', '<<='},
 		{'shrto', '>>='},
 		{'ashrto', '>>>='},
 	}
 
-	for _,info in ipairs(optoinfos) do
+	for _,info in ipairs(optinfos) do
 		local name, op = table.unpack(info)
 		local cl = ast._assign:subclass{type=name, op=op}
+		info[3] = cl
 		ast['_'..name] = cl
 		function cl:serialize(apply)
 			local vars = table.mapi(self.vars, apply)
@@ -264,7 +266,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 		LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
 
 		self.symbols:insert(ast._ashr.op)
-		for _,info in ipairs(optoinfos) do
+		for _,info in ipairs(optinfos) do
 			local name, op = table.unpack(info)
 			self.symbols:insert(op)
 		end
@@ -294,56 +296,15 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 
 	-- add op= parsing
 	function LuaFixedParser:parse_assign(vars, from, ...)
-		if self:canbe('..=', 'symbol') then
-			return ast._concatto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('+=', 'symbol') then
-			return ast._addto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('-=', 'symbol') then
-			return ast._subto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('-=', 'symbol') then
-			return ast._subto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('*=', 'symbol') then
-			return ast._multo(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('/=', 'symbol') then
-			return ast._divto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('//=', 'symbol') then
-			return ast._idivto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('%=', 'symbol') then
-			return ast._modto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('^=', 'symbol') then
-			return ast._powto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('&=', 'symbol') then
-			return ast._bandto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('|=', 'symbol') then
-			return ast._borto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		--[[ mixes up with not-equals ... hmm
-		elseif self:canbe('~=', 'symbol') then
-			return ast._borto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		--]]
-		elseif self:canbe('<<=', 'symbol') then
-			return ast._shlto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('>>=', 'symbol') then
-			return ast._shrto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		elseif self:canbe('>>>=', 'symbol') then
-			return ast._ashrto(vars, assert(self:parse_explist()))
-				:setspan{from = from, to = self:getloc()}
-		else
-			return LuaFixedParser.super.parse_assign(self, vars, from, ...)
+		for _,info in ipairs(optinfos) do
+			local name, op, cl = table.unpack(info)
+			if self:canbe(op, 'symbol') then
+				return cl(vars, assert(self:parse_explist()))
+					:setspan{from = from, to = self:getloc()}
+			end
 		end
+
+		return LuaFixedParser.super.parse_assign(self, vars, from, ...)
 	end
 
 	-- copy of LuaParser:parse_prefixexp()
