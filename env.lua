@@ -24,7 +24,7 @@ return function(env)
 	-- I could insert >>> into the symbols and map it to luajit arshift ...
 	ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
 
-	local optinfos = {
+	local assignops = table{
 		{'concatto', '..='},
 		{'addto', '+='},
 		{'subto', '-='},
@@ -33,30 +33,36 @@ return function(env)
 		{'idivto', '//='},
 		{'modto', '%='},
 		{'powto', '^='},
-		{'bandto', '&='},
-		{'borto', '|='},
+		{'bandto', '&=', 'bit.band(%1, %2)'},
+		{'borto', '|=', 'bit.bor(%1, %2)'},
 		-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
 		-- coincidentally, xor is sometimes denoted as the not-equivalent symbol, because that's basically what it means, but how to distinguish between boolean and bitwise ...
 		-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
-		{'bxorto', '~_='},
-		{'shlto', '<<='},
-		{'shrto', '>>='},
-		{'ashrto', '>>>='},
-	}
-
-	for _,info in ipairs(optinfos) do
-		local name, op = table.unpack(info)
-		local cl = ast._assign:subclass{type=name, op=op}
+		{'bxorto', '~~=', 'bit.bxor(%1, %2)'},
+		{'shlto', '<<=', 'bit.lshift(%1, %2)'},
+		{'shrto', '>>=', 'bit.rshift(%1, %2)'},
+		{'ashrto', '>>>=', 'bit.arshift(%1, %2)'},
+	}:mapi(function(info)
+		local name, op, binopexpr = table.unpack(info)
+		binopexpr = binopexpr or '%1 '..op:sub(1, -2)..' %2'
+		local cl = ast._assign:subclass{type=name, op=op, binopexpr=binopexpr}
 		info[3] = cl
 		ast['_'..name] = cl
 		function cl:serialize(apply)
 			local vars = table.mapi(self.vars, apply)
 			local exprs = table.mapi(self.exprs, apply)
 			return vars:concat','..' = '..vars:mapi(function(v,i)
-				return '('..v..' '..op:sub(1,#op-1)..' '..exprs[i]..')'
+				return '('
+					..binopexpr
+						:gsub('%%%d', function(j)
+							if j == '%1' then return v end
+							if j == '%2' then return exprs[i] end
+						end)
+					..')'
 			end):concat','
 		end
-	end
+		return cl
+	end)
 
 	-- Make a new 'ast' namespace and subclass all former classes into it so that we don't mess with anyone using the base-class
 	ast._idiv = ast._idiv:subclass()
@@ -266,9 +272,8 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 		LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
 
 		self.symbols:insert(ast._ashr.op)
-		for _,info in ipairs(optinfos) do
-			local name, op = table.unpack(info)
-			self.symbols:insert(op)
+		for _,cl in ipairs(assignops) do
+			self.symbols:insert(cl.op)
 		end
 
 		self.symbols:insert'?'	-- safe-navigation token, pairs with ?. ?: ?[ ?(
@@ -296,9 +301,8 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 
 	-- add op= parsing
 	function LuaFixedParser:parse_assign(vars, from, ...)
-		for _,info in ipairs(optinfos) do
-			local name, op, cl = table.unpack(info)
-			if self:canbe(op, 'symbol') then
+		for _,cl in ipairs(assignops) do
+			if self:canbe(cl.op, 'symbol') then
 				return cl(vars, assert(self:parse_explist()))
 					:setspan{from = from, to = self:getloc()}
 			end
