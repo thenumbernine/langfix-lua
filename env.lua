@@ -10,8 +10,8 @@ return function(env)
 	local LuaTokenizer = require 'parser.lua.tokenizer'
 
 
-	-- TODO tempting to dothis here, then assert it as a global in the codegen, instead of inserting "require 'ffi'" everywhere
-	--ffi = require 'ffi'
+	-- set globals here
+	env.ffi = require 'ffi'
 
 	local LuaFixedTokenizer = LuaTokenizer:subclass()
 
@@ -61,7 +61,7 @@ return function(env)
 	ast._shr = ast._shr:subclass()
 
 	local function intptrcode(arg)
-		return "require'ffi'.cast('intptr_t',"..arg..')'
+		return "ffi.cast('intptr_t',"..arg..')'
 	end
 
 	if not load'x=y//z' then
@@ -127,98 +127,12 @@ return function(env)
 	if t then
 		return ]]..(b and apply(b) or 't')..[[
 	else
-		return ]]..(c and apply(c) or '')..[[
+		return ]]..apply(c)..[[
 	end
 end)(]]..apply(a)..[[)
 ]]
 		end
 	end
-
-
-	--[[
-	how should a?.b be implemented?
-	already Lua supports nil-as-undefined, so a.b is indistinguishable from a?.b
-	(except in LuaJIT with cdata ... which throws exceptions when indexes are missing ... frustrating)
-	the real operation of a?.b is to stop chaining for *successive* indexes, i.e. a?.b?.c
-
-	... as an expression ...
-	a.b.c
-	becomes
-	index(index(var'a', string'b'), string'c')
-	becomes
-	a.b.c
-
-	so
-	a?.b?.c
-	becomes
-	optindex(optindex(var'a', string'b'), string'c')
-	becomes ...
-
-	(function(x)
-		if x == nil then return nil end
-		return (function(x)
-			if x == nil then return nil end
-			return x.c
-		end)(x.b)
-	end)(a)
-
-	a.b.c()
-	becomes
-	call(index(index(var'a', string'b'), string'c'))
-
-	so
-	a?.b?.c()
-	becomes
-	call(optindex(optindex(var'a', string'b'), string'c'))
-	... but then the parent 'call' code needs know about its child ...
-	... or does it, since this is a call irregardless ... is the bailout per-expression?
-	that means generating a statement needs to search through the stmt tree to find any opts
-	and if they exist, wrap the expr in (function() end)()
-
-	(function(x)							-- a?.
-		if x == nil then return nil end		-- a?.
-
-		return (function(x)					-- b?.
-			if x == nil then return nil end	-- b?.
-
-			return x.c()					-- c() ... inner-most expression is a index-then-call operator, not-optional
-											-- this can error if c is nil
-
-		end)(x.b)							-- b?.
-
-	end)(a)									-- a?.
-
-	waiit
-	what is being short-circuited here?
-	the single . index operator? or the entire expression?
-	just the single . operator i.g. otherwise `a?.b + a.c` could short-circuit the whole thing upon fail ...
-	... or is that a good thing?
-
-	nahh i think i need an optcall to go along with my optindex
-
-	a?.b?()
-	becomes
-	(function(x)
-		if x == nil then return nil end
-		(function(x)
-			if x == nil then return nil end
-			return x()
-		end)(x.b)
-	end)(a)
-
-
-	ok this is only for chains of call+indexself+index
-	so yeah I do need optcall+optindexself+optindex
-	and when generating the code, I have to assert that all these nodes have only 1 child, and I need to generate the code in opposite order of any hierarchies with opt nodes in them.
-
-
-	I need to look for ?'s before ['s and .'s in parse_prefixexp ... optindex
-	I need to look for ? before : in parse_prefixexp also ...  optindexself
-	... and before parse_args in parse_prefixexp .... in which case, return optcall
-
-	... and all of this on rhs only?
-	... or shhould it eval on lhs as well as full-on stmt-short-circuit?  a?.b = c?.d bails fully if a is nil -- no errors?
-	--]]
 
 	-- TODO these lambdas seem nice but don't always parse correctly
 	-- Especially if you are immediately calling them -- in which case, two successive lambdas will try to use the 1st result to call the 2nd ....
@@ -523,12 +437,12 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 			else
 				--local b = self:parse_exp_or()
 				b = self:parse_exp_or()
-				assert(b, "expected a ?? b, a ??: c, or a ?? b : c")
+				assert(b, "expected a ?? b : c or a ??: c")
 
 				-- should I allow the ternary to not provide an 'else', and it default to nil?
 				if self:canbe(':', 'symbol') then
 					c = self:parse_exp_or()
-					assert(c, "expected a ??: c, or a ?? b : c")
+					assert(c, "expected a ?? b : c or a ??: c")
 				end
 			end
 
