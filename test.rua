@@ -42,6 +42,8 @@ asserteq(g(3), (3+1)*(3-1))
 asserteq( ([:]self)(3), 3)
 asserteq( ([:, x]self+x)(3, 4), 7)
 
+do local x = ([]3)() asserteq(x, 3) end
+
 -- bit operators
 asserteq(2 << 2, 8)
 
@@ -139,6 +141,8 @@ do
 	local k = 'b'
 	asserteq(a?[k]?(a, a), a)
 	-- TODO false positive warning, all these ?. and ?[] and ?()'s cannot exist as statements, but only as arguments to functions
+
+	assert(not load'a.b = a.c?')	-- make sure the trailing ? is an error
 end
 --]]
 --[[ safe-navigation write operators ...
@@ -158,6 +162,43 @@ do
 	a = {}
 	a?.b = 'foo'		-- assert no error
 	asserteq(a.b, 'foo')
+end
+--]]
+
+-- [[ ternary also?
+do
+	asserteq(true ?? 1 : 2, 1)
+	asserteq(false ?? 1 : 2, 2)
+	asserteq(true ?? true : 2, true)
+	asserteq(true ?? false : 2, false)
+	asserteq(false ?? true : 2, 2)
+	asserteq(false ?? false : 2, 2)
+	asserteq(1 + 1 ?? false : 2, false)
+
+	-- ternary has parsing ambiguities with safe-access
+	-- I could resolve them maybe if I allowed rewinding tokens
+	-- it gets worse when you consider safe-access ?[] and ternary-with-lambdas ?[]
+	local a = []nil
+	local tmp = a() ?? false : 2 asserteq(tmp, 2)
+	asserteq( a() ?? false : 2, 2)		
+	asserteq( (a() ?? false : 2), 2)	
+	asserteq( ((a()) ?? false : 2), 2)	
+	local a = {}
+	asserteq(a.b ?? false : 2, 2)		
+	asserteq(a?.b ?? false : 2, 2)		
+
+	local a = {} local x = a.b ?? 1 : 2 asserteq(x, 2)	
+	local a = {} local x = a.b?.c or 2 asserteq(x, 2)	
+
+	-- ternary with optional clauses?
+	-- omit the 2nd to use the 1st's value ... to work like safe-navigation / null-coalescence
+	-- omit the 3rd to use nil ... is there a degenerate use case for this? other than ternary?  maybe I should force a 3rd arg?
+	asserteq(true ?? 1 : 2, 1)
+	asserteq(true ??: 2, true)
+	asserteq(true ?? 1, 1)
+	asserteq(false ?? 1 : 2, 2)
+	asserteq(false ??: 2, 2)
+	asserteq(false ?? 1, nil)
 end
 --]]
 

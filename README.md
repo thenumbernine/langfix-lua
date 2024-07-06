@@ -50,11 +50,10 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- Maybe a first-line-comment for something like `use strict`, to specify what features should be on or off, as an exception to whatever default setting.
 - Metamethods for bit operators? but I suspect that will take too much runtime-changes, like testing each argument for a metamethod field, optionally calling, etc, and it would ruin performance.
 - Zero-based indexing.  list literals shift their integer keys to initialize to be zero-based.  likewise they invoke a wrapper for a zero-based metamethod object.  `select` also shifts its indexes by 1.
-- Maybe some shorthand for ctype array/ptr construction based on the type? i.e. `char` is equivalent to `ffi.typeof'char'` and char:ptr() makes `'char*'` type, and `char:ar(10)` makes `char[10]` type.
+- Maybe some shorthand for ctype array/ptr construction based on the type? i.e. `char` is equivalent to `ffi.typeof'char'` and `char:ptr()` makes `'char*'` type, and `char:ar(10)` makes `char[10]` type.
 	In pure Lua this would mean changing the ctype metatable, which LuaJIT goes way out of their way to mess with (having metatable() return strings, so you have to use debug.metatable() .... why?!?!?!)
 - Better coroutine iteration for ranges, something more like luafun, or just make this whole thing compatible with luafun.
 - Think of a new file extension to use?
-- How about a legit ternary operator: `a ? b : c` but safe for boolean types?  However this syntax could clash with safe-navigation operator combined with index-by-value, i.e. `a?[b]:c()` could be evaluated as `a and a[b]:c()` or as `a and a[b] or c()`.
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 - I'm still thinking how to handle lambdas that are single-expression multiple-return-value.
@@ -62,6 +61,36 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 		This gets avoided if I wrap the lambda in ()'s, but then I have to wrap all lambdas being passed into function arguments with ()'s.
 	Maybe I would require an extra () around the multiple-return arguments of a single-expression multiple-return lambda, but then that would cause a truncated-multiple-return (i.e. `(...)` evaluates to just the first argument of `...`) to be wrapped in *two* parenthesis instead of just one as with Vanilla Lua.
 	(I.e. `[x](x+1, x+2)` would return two values, but then `[x]((assert(x, 'truncate')))` would be proper syntax to truncate the `'truncate'` string upon returning).
+
+- How about a legit ternary operator: `a ? b : c` but safe for boolean types?  However this syntax could clash with safe-navigation operator combined with index-by-value, i.e. `a?[b]:c()` could be evaluated as `a and a[b]:c()` or as `a and a[b] or c()`.
+	- How about combine `:` with safe-navigation as well, so `a?.b?.c : 42` is also a boolean-safe version of `a?.b?.c or 42`?
+ 	- How about intermediate default assignments as well? `a?.b=Foo()?.c=Bar()` will assign `a.b = Foo()` if it doesn't exist and `a.b.c = Bar()` if it doesn't exist, and return `a.b.c`.
+	- Would be nice, but `a ? b : d` conflicts with `a?.b`
+	- Wow can we unify ternary and safe-navigation?
+	- how about `?a.b.c` is a short-circuit on all successive evaluations?
+		- and `?a.b.c:d` is the same, but use `d` as the default 
+		- ... but this is ambiguous with a `self` call `c:d()`
+	- or how about ternary is the default, combined with safe-navigation, and with 2nd arg defaults to 1st arg, and 3rd arg defaults to `nil`?
+	-  so `a.b.c ?` is the equivalent to js's `a?.b?.c`
+	-  and `a.b.c ?: 42` is the equivalent to js's `a?.b?.c || 42`
+	- but this would mean that all indexing/calling on the 1st arg of ternary would need to be rewritten.
+	- What if I had pure ternary with defaults and no safe-navigation, then how would safe-navigation look? `a ? a.b ? a.b.c`...
+	- What if I had purely safe-navigation with fallback? `a.b.c?` ... looks a lot simpler ...
+	- What about safe-navigation of some but not all indexes?  `((a.b)?.c).d?` 
+		- ... and this is this idea's weakness, is that how do you specify which index operations to make safe versus those to not?  
+		- Should the safe-access change *all* indexing operations?  Should it only change up until it reaches another ... parenthesis?  Another safe-access?
+		- That's the downside to this model, once safe-access is on, how to turn it off?
+	- how about `?` is postfix for safety of just the last most index?  and `:` is a separate operator that works like `or` but is boolean-safe?
+		- `a .b? .c? .d? : 42` ... but then which would `:` associate with?
+
+- can I make an operator to do this, since I do it often enough?
+	- `cache ?[l]:={} ?[m]:={} ?[i]:={} ?[j]:=[] do ... return c end`
+- ... maybe I don't need the `:`'s, since they will just be `or`, but if I omit them then could it be parsed as an assignment?
+- ... or maybe I do need `? :` ternary operators? despite parsing ambiguities...
+	- `cache ?[l]={} ?[m]={} ?[i]={} ?[j]=[] do ... return c end`
+- or if I merge ternary and safe-access then ...
+	-  `((((cache[l]?:={})[m] ?:={})[i])?:={})[j]?:=[]do ... end`
+
 
 ### Complementing Features In Other Libraries:
 - [`lua-ext`](https://github.com/thenumbernine/lua-ext):

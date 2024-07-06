@@ -116,6 +116,24 @@ return function(env)
 		end
 	end
 
+	do
+		local _ternary = ast._op:subclass()
+		_ternary.type = 'ternary'
+		ast._ternary = _ternary
+		function _ternary:serialize(apply)
+			local a, b, c = table.unpack(self, 1, 3)
+			return [[
+(function(t)
+	if t then
+		return ]]..(b and apply(b) or 't')..[[
+	else
+		return ]]..(c and apply(c) or '')..[[
+	end
+end)(]]..apply(a)..[[)
+]]
+		end
+	end
+
 
 	--[[
 	how should a?.b be implemented?
@@ -222,10 +240,10 @@ return function(env)
 	ast._optindex.type = 'optindex'
 	function ast._optindex:serialize(apply)
 		return [[
-	(function(t, k)
-		if t == nil then return nil end
-		return t[k]
-	end)(]]..apply(self.expr)..','..apply(self.key)..')'
+(function(t, k)
+	if t == nil then return nil end
+	return t[k]
+end)(]]..apply(self.expr)..','..apply(self.key)..')'
 	end
 
 	-- ok here's where I start to break things
@@ -238,10 +256,10 @@ return function(env)
 		error('here with parent '..tostring(self.parent.type))
 		-- indexself key is a Lua string so don't apply()
 		return [[
-	(function(t, k)
-		if t == nil then return nil end
-		return t[k]
-	end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
+(function(t, k)
+	if t == nil then return nil end
+	return t[k]
+end)(]]..apply(self.expr)..','..ast._string(self.key)..')'
 	end
 
 	-- subclass the original _call, not our new one ...
@@ -253,21 +271,21 @@ return function(env)
 		if ast._optindexself:isa(func) then
 			-- optcall optindexself
 			return [[
-	(function(t, k, ...)
-		if t == nil then return nil end
-		local f = t[k]
-		if f == nil then return nil end
-		return f(t, ...)
-	end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+(function(t, k, ...)
+	if t == nil then return nil end
+	local f = t[k]
+	if f == nil then return nil end
+	return f(t, ...)
+end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
 			-- indexself key is a Lua string so ... lazy I know
 		else
 			-- TODO optcall indexself ...
 			-- optcall anything else
 			return [[
-	(function(f, ...)
-		if f == nil then return nil end
-		return f(...)
-	end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
+(function(f, ...)
+	if f == nil then return nil end
+	return f(...)
+end)(]]..table{func}:append(self.args):mapi(apply):concat','..')'
 		end
 	end
 
@@ -278,10 +296,10 @@ return function(env)
 		local func = self.func
 		if ast._optindexself:isa(func) then
 			return [[
-	(function(t, k, ...)
-		if t == nil then return nil end
-		return t[k](t, ...)
-	end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
+(function(t, k, ...)
+	if t == nil then return nil end
+	return t[k](t, ...)
+end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):concat','..')'
 		else
 			return _call.super.serialize(self, apply)
 		end
@@ -296,7 +314,8 @@ return function(env)
 			self.symbols:insert(op)
 		end
 
-		self.symbols:insert'?'	-- optional token, pairs with ?. ?: ?[ ?(
+		self.symbols:insert'?'	-- safe-navigation token, pairs with ?. ?: ?[ ?(
+		self.symbols:insert'??'	-- I'm using this for ternary / elvis / null-coalescence
 	end
 
 
@@ -416,7 +435,15 @@ return function(env)
 					:setspan{from = from, to = self:getloc()}
 			else
 				local args = self:parse_args()
-				if not args then break end
+				if not args then 
+					if opt then 
+						error("expected . [ : or () after ? safe-navigator") 
+						-- TODO rewind one token and keep looking, to parse it as a ternary operator?
+						-- or is rewinding a dangerous thing?
+						--return prefixexp
+					end
+					break 
+				end
 
 				local clcall = opt and ast._optcall or ast._call
 				prefixexp = clcall(prefixexp, table.unpack(args))
@@ -426,6 +453,42 @@ return function(env)
 
 		return prefixexp
 	end
+
+-- [=[ ternary operator
+	function LuaFixedParser:parse_exp()
+		return self:parse_exp_ternary()	-- typically goes to parse_exp_or ...
+	end
+	
+	function LuaFixedParser:parse_exp_ternary()
+		local ast = self.ast
+		local a = self:parse_exp_or()
+		if not a then return end
+		--if self:canbe('?', 'symbol') then
+		-- TODO can't use ? or it messes with safe-navigation ... or I could change safe-navigation ...
+		if self:canbe('??', 'symbol') then
+			local b, c
+			if self:canbe(':', 'symbol') then
+				-- skip 'b':
+				c = self:parse_exp_or()
+				assert(c, "expected a ??: c")
+			else
+				--local b = self:parse_exp_or()
+				b = self:parse_exp_or()
+				assert(b, "expected a ?? b, a ??: c, or a ?? b : c")
+				
+				-- should I allow the ternary to not provide an 'else', and it default to nil?
+				if self:canbe(':', 'symbol') then
+					c = self:parse_exp_or()
+					assert(b, "expected a ??: c, or a ?? b : c")
+				end
+			end
+
+			a = ast._ternary(a, b, c)
+				:setspan{from = a.span.from, to = self:getloc()}
+		end
+		return a
+	end
+--]=]
 
 	-- lambdas
 	function LuaFixedParser:parse_functiondef()
@@ -520,7 +583,7 @@ return function(env)
 			parser:setData(data, source)
 			tree = parser.tree
 			result = tree:toLua()
-	--DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
+--DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
 		end, function(err)
 			return '\n'
 				--..(source or ('['..data:sub(1,10)..'...]'))..'\n'		-- ext.load already handles this
