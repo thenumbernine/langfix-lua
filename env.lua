@@ -11,6 +11,7 @@ return function(env)
 
 
 	-- set globals here
+	env = env or _G
 	env.ffi = require 'ffi'
 
 	local LuaFixedTokenizer = LuaTokenizer:subclass()
@@ -34,6 +35,9 @@ return function(env)
 		{'powto', '^='},
 		{'bandto', '&='},
 		{'borto', '|='},
+		-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
+		-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
+		--{'bxorto', '~='},
 		{'shlto', '<<='},
 		{'shrto', '>>='},
 		{'ashrto', '>>>='},
@@ -127,7 +131,7 @@ return function(env)
 	if t then
 		return ]]..(b and apply(b) or 't')..[[
 	else
-		return ]]..apply(c)..[[
+		return ]]..(c and apply(c))..[[
 	end
 end)(]]..apply(a)..[[)
 ]]
@@ -323,6 +327,11 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 		elseif self:canbe('|=', 'symbol') then
 			return ast._borto(vars, assert(self:parse_explist()))
 				:setspan{from = from, to = self:getloc()}
+		--[[ mixes up with not-equals ... hmm
+		elseif self:canbe('~=', 'symbol') then
+			return ast._borto(vars, assert(self:parse_explist()))
+				:setspan{from = from, to = self:getloc()}
+		--]]
 		elseif self:canbe('<<=', 'symbol') then
 			return ast._shlto(vars, assert(self:parse_explist()))
 				:setspan{from = from, to = self:getloc()}
@@ -411,7 +420,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 				assert(exp, "safe-navigation-assignment ? : expected an expression")
 				prefixexp.optassign = exp
 			end
---]]		
+--]]
 		end
 
 		return prefixexp
