@@ -46,7 +46,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- "safe-navigation-assign operator": `a?.b:c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
 - Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-navigation and ternary clash, so does safe-navigation and self-call, so does ternary and lambdas ...
 	- Ternary 2nd argument defaults to the 1st.  `a ??: b` returns `a` if present, `b` otherwise.
-	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis.
+	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
 ### TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
