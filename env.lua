@@ -435,14 +435,14 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 					:setspan{from = from, to = self:getloc()}
 			else
 				local args = self:parse_args()
-				if not args then 
-					if opt then 
-						error("expected . [ : or () after ? safe-navigator") 
+				if not args then
+					if opt then
+						error("expected . [ : or () after ? safe-navigator")
 						-- TODO rewind one token and keep looking, to parse it as a ternary operator?
 						-- or is rewinding a dangerous thing?
 						--return prefixexp
 					end
-					break 
+					break
 				end
 
 				local clcall = opt and ast._optcall or ast._call
@@ -458,7 +458,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 	function LuaFixedParser:parse_exp()
 		return self:parse_exp_ternary()	-- typically goes to parse_exp_or ...
 	end
-	
+
 	function LuaFixedParser:parse_exp_ternary()
 		local ast = self.ast
 		local a = self:parse_exp_or()
@@ -475,7 +475,7 @@ end)(]]..table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):c
 				--local b = self:parse_exp_or()
 				b = self:parse_exp_or()
 				assert(b, "expected a ?? b, a ??: c, or a ?? b : c")
-				
+
 				-- should I allow the ternary to not provide an 'else', and it default to nil?
 				if self:canbe(':', 'symbol') then
 					c = self:parse_exp_or()

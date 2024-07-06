@@ -180,15 +180,15 @@ do
 	-- it gets worse when you consider safe-access ?[] and ternary-with-lambdas ?[]
 	local a = []nil
 	local tmp = a() ?? false : 2 asserteq(tmp, 2)
-	asserteq( a() ?? false : 2, 2)		
-	asserteq( (a() ?? false : 2), 2)	
-	asserteq( ((a()) ?? false : 2), 2)	
+	asserteq( a() ?? false : 2, 2)
+	asserteq( (a() ?? false : 2), 2)
+	asserteq( ((a()) ?? false : 2), 2)
 	local a = {}
-	asserteq(a.b ?? false : 2, 2)		
-	asserteq(a?.b ?? false : 2, 2)		
+	asserteq(a.b ?? false : 2, 2)
+	asserteq(a?.b ?? false : 2, 2)
 
-	local a = {} local x = a.b ?? 1 : 2 asserteq(x, 2)	
-	local a = {} local x = a.b?.c or 2 asserteq(x, 2)	
+	local a = {} local x = a.b ?? 1 : 2 asserteq(x, 2)
+	local a = {} local x = a.b?.c or 2 asserteq(x, 2)
 
 	-- ternary with optional clauses?
 	-- omit the 2nd to use the 1st's value ... to work like safe-navigation / null-coalescence
