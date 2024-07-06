@@ -44,7 +44,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - "safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 	- "safe-navigation-assign operator": `a?.b:c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
 - Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-navigation and ternary clash, so does safe-navigation and self-call, so does ternary and lambdas ...
-	- Ternary 2nd argument defaults to the 1st, and 3rd argument defaults to nil.  `a ??: b` returns `a` if present, `b` otherwise.
+	- Ternary 2nd argument defaults to the 1st.  `a ??: b` returns `a` if present, `b` otherwise.
 
 ### TODO
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
