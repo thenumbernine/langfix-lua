@@ -477,7 +477,7 @@ end)(<?=table{func.expr, ast._string(func.key)}:append(self.args):mapi(apply):co
 					assert(c, msg)
 					self:mustbe(')', 'symbol')
 				else
-					c = self:parse_exp_or()
+					c = self:parse_exp_ternary()
 					assert(c, msg)
 					c = table{c}
 				end
