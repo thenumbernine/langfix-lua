@@ -62,15 +62,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 
-- safe-navigation-or-assign ... can I make an operator to do this, since I do it often enough?
-	- `cache ?[l]:={} ?[m]:={} ?[i]:={} ?[j]:=[] do ... return c end`
-- ... maybe I don't need the `:`'s, since they will just be `or`, but if I omit them then could it be parsed as an assignment?
-- ... or maybe I do need `? :` ternary operators? despite parsing ambiguities...
-	- `cache ?[l]={} ?[m]={} ?[i]={} ?[j]=[] do ... return c end`
-- or if I merge ternary and safe-navigation then ...
-	-  `((((cache[l]?:={})[m] ?:={})[i])?:={})[j]?:=[]do ... end`
-- `cache ?[l]:{} ?[m]:{} ?[i]:{} ?[j]:[] do ... return c end`
-
+- I could use traditional ternary `a?b:c` combined with safe-navigation `a?.b?:c()` so long as I 1) make null-coalescence an operator of its own, like `a??b`, instead of a ternary with 2nd arg missing `a?:b` and 2) force safe-navigation to not have spaces between the `?` and `.`...
 
 ### Complementing Features In Other Libraries:
 - [`lua-ext`](https://github.com/thenumbernine/lua-ext):
