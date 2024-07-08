@@ -175,8 +175,8 @@ return function(env)
 		function _ternary:serialize(apply)
 			return template([[
 langfix.ternary(
-	<?=apply(self[1])?>, 
-<? if self[2] then 
+	<?=apply(self[1])?>,
+<? if self[2] then
 ?>	function() return <?=commasep(self[2], apply)?> end
 <? else
 ?>	nil
@@ -336,10 +336,16 @@ langfix.optcallself(
 			self.symbols:insert(cl.op)
 		end
 
-		self.symbols:insert'?'	-- safe-navigation token, pairs with ?. ?: ?[ ?(
-		self.symbols:insert'??'	-- I'm using this for ternary / elvis / null-coalescence
-	end
+		-- safe-navigation token, pairs with ?. ?: ?[ ?(
+		self.symbols:insert'?.'
+		self.symbols:insert'?['
+		self.symbols:insert'?:'
+		self.symbols:insert'?('
 
+		self.symbols:insert'?'	-- ternary
+
+		self.symbols:insert'??'	-- null-coalescence
+	end
 
 	-- parse *all* bitwise operators, and for LuaJIT make sure to replace them with bit.xxx function calls.
 
@@ -391,58 +397,77 @@ langfix.optcallself(
 		end
 
 		while true do
-			local opt = self:canbe('?', 'symbol')
-			if self:canbe('[', 'symbol') then
+			local opt = self:canbe('?[', 'symbol')
+			if opt or self:canbe('[', 'symbol') then
 				local cl = opt and ast._optindex or ast._index
 				prefixexp = cl(prefixexp, assert(self:parse_exp()))
 				self:mustbe(']', 'symbol')
 				prefixexp:setspan{from = from, to = self:getloc()}
-			elseif self:canbe('.', 'symbol') then
-				local cl = opt and ast._optindex or ast._index
-				local sfrom = self:getloc()
-				prefixexp = cl(
-					prefixexp,
-					ast._string(self:mustbe(nil, 'name'))
-						:setspan{from = sfrom, to = self:getloc()}
-				)
-				:setspan{from = from, to = self:getloc()}
-			elseif self:canbe(':', 'symbol') then
-				local cl = opt and ast._optindexself or ast._indexself
-				prefixexp = cl(
-					prefixexp,
-					self:mustbe(nil, 'name')
-				):setspan{from = from, to = self:getloc()}
-
-				local clcall = self:canbe('?', 'symbol') and ast._optcall or ast._call
-				local args = self:parse_args()
-				if not args then error"function arguments expected" end
-				prefixexp = clcall(prefixexp, table.unpack(args))
-					:setspan{from = from, to = self:getloc()}
 			else
-				local args = self:parse_args()
-				if not args then
-					if opt then
-						error("expected . [ : or () after ? safe-navigator")
-						-- TODO rewind one token and keep looking, to parse it as a ternary operator?
-						-- or is rewinding a dangerous thing?
-						--return prefixexp
-					end
-					break
-				end
-
-				local clcall = opt and ast._optcall or ast._call
-				prefixexp = clcall(prefixexp, table.unpack(args))
+				opt = self:canbe('?.', 'symbol')
+				if opt or self:canbe('.', 'symbol') then
+					local cl = opt and ast._optindex or ast._index
+					local sfrom = self:getloc()
+					prefixexp = cl(
+						prefixexp,
+						ast._string(self:mustbe(nil, 'name'))
+							:setspan{from = sfrom, to = self:getloc()}
+					)
 					:setspan{from = from, to = self:getloc()}
+				else
+					opt = self:canbe('?:', 'symbol')
+					if opt or self:canbe(':', 'symbol') then
+						local cl = opt and ast._optindexself or ast._indexself
+						prefixexp = cl(
+							prefixexp,
+							self:mustbe(nil, 'name')
+						):setspan{from = from, to = self:getloc()}
+
+						-- it'd be nice to handle f?'strings' or f?{tables} just like we can do without ?'s
+						-- but if I do that then I have to handle ? as a separate symbol to the indexes
+						-- and in doing so it makes index and ternary mix up
+						-- (another fix i had for this was changing ternary, but that's pretty established...)
+						local args, clcall
+						if self:canbe('?(', 'symbol') then
+							-- no implicit () with string or table when using safe-navigation
+							args = self:parse_explist() or {}
+							self:mustbe(')', 'symbol')
+							clcall = ast._optcall
+						else
+							args = self:parse_args()
+							clcall = ast._call
+						end
+
+						assert(args, "function arguments expected")
+						prefixexp = clcall(prefixexp, table.unpack(args))
+							:setspan{from = from, to = self:getloc()}
+					else
+						local args, clcall
+						if self:canbe('?(', 'symbol') then
+							-- no implicit () with string or table when using safe-navigation
+							args = self:parse_explist() or {}
+							self:mustbe(')', 'symbol')
+							clcall = ast._optcall
+						else
+							args = self:parse_args()
+							if not args then break end
+							clcall = ast._call
+						end
+
+						prefixexp = clcall(prefixexp, table.unpack(args))
+							:setspan{from = from, to = self:getloc()}
+					end
+				end
 			end
 
 -- [[ safe-navigation suffix `:` for optional-assignment to the key if it doesn't exist
--- if you just want optional value, use ternary / null-coalescence `??:`
-			if opt and self:canbe(':', 'symbol') then
+-- if you just want optional value, use ternary `? :` / null-coalescence `??`
+			if opt and self:canbe('=', 'symbol') then
 				if ast._optcall:isa(prefixexp) then
 					error("safe-navigation-assign only works after indexes, not calls")
 				end
 				local exp = self:parse_exp()
-				assert(exp, "safe-navigation-assignment ? : expected an expression")
+				assert(exp, "safe-navigation-assignment ?. : expected an expression")
 				prefixexp.optassign = exp
 			end
 --]]
@@ -460,41 +485,39 @@ langfix.optcallself(
 		local ast = self.ast
 		local a = self:parse_exp_or()
 		if not a then return end
+
+		-- if we get a ( then handle many and expect a )
+		-- if we don't then just expect one
+		-- same logic as with single-expression lambdas
+		local function parseOneOrMany(msg)
+			local c
+			if self:canbe('(', 'symbol') then
+				c = self:parse_explist()
+				assert(c, msg)
+				self:mustbe(')', 'symbol')
+			else
+				c = self:parse_exp_ternary()
+				assert(c, msg)
+				c = table{c}
+			end
+			return c
+		end
+
 		--if self:canbe('?', 'symbol') then
 		-- TODO can't use ? or it messes with safe-navigation ... or I could change safe-navigation ...
-		if self:canbe('??', 'symbol') then
+		if self:canbe('?', 'symbol') then
+			--local b = self:parse_exp_or()
+			local b = parseOneOrMany"expected a ? b : c or a ?? c"
 
-			-- if we get a ( then handle many and expect a )
-			-- if we don't then just expect one
-			-- same logic as with single-expression lambdas
-			local function parseOneOrMany(msg)
-				local c
-				if self:canbe('(', 'symbol') then
-					c = self:parse_explist()
-					assert(c, msg)
-					self:mustbe(')', 'symbol')
-				else
-					c = self:parse_exp_ternary()
-					assert(c, msg)
-					c = table{c}
-				end
-				return c
-			end
+			-- should I allow the ternary to not provide an 'else', and it default to nil?
+			self:mustbe(':', 'symbol')
+			local c = parseOneOrMany"expected a ? b : c or a ?? c"
 
-			local b, c
-			if self:canbe(':', 'symbol') then
-				-- skip 'b':
-				c = parseOneOrMany"expected a ??: c"
-			else
-				--local b = self:parse_exp_or()
-				b = parseOneOrMany"expected a ?? b : c or a ??: c"
-
-				-- should I allow the ternary to not provide an 'else', and it default to nil?
-				if self:canbe(':', 'symbol') then
-					c = parseOneOrMany"expected a ?? b : c or a ??: c"
-				end
-			end
-
+			a = ast._ternary(a, b, c)
+				:setspan{from = a.span.from, to = self:getloc()}
+		elseif self:canbe('??', 'symbol') then
+			local b
+			local c = parseOneOrMany"expected a ?? c"
 			a = ast._ternary(a, b, c)
 				:setspan{from = a.span.from, to = self:getloc()}
 		end

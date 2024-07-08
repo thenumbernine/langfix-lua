@@ -148,65 +148,65 @@ end
 -- [[ safe-navigation-assignment
 do
 	local a = {}
-	asserteq(a.b, nil)	asserteq(a?.b : 2, 2)	asserteq(a.b, 2)
+	asserteq(a.b, nil)	asserteq(a?.b=2, 2)	asserteq(a.b, 2)
 	--optional-write
 	local d = {}
-	asserteq(a.c, nil)	asserteq(a?.c:d, d)	asserteq(a.c, d)
+	asserteq(a.c, nil)	asserteq(a?.c=d, d)	asserteq(a.c, d)
 	--optional-read without write using ternary operator
-	asserteq(a?.e?.f ??: d, d)	asserteq(a?.e?.f, nil)
+	asserteq(a?.e?.f ?? d, d)	asserteq(a?.e?.f, nil)
 
 	-- optional-write chained:
 	local a = {}
-	asserteq(a?.b:{}?.c:{}?.d:2, 2)
+	asserteq(a?.b={}?.c={}?.d=2, 2)
 	asserteq(a.b.c.d, 2)
 
 	-- optional-write and call?
 	local a = {}
-	--asserteq(a?.b:([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
-	asserteq((a?.b:([]4))(), 4)	-- this assigns the function to b ... () precedence
+	--asserteq(a?.b=([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
+	asserteq((a?.b=([]4))(), 4)	-- this assigns the function to b ... () precedence
 	asserttype(a.b, 'function')
-	-- and what happens if we proceed a call with a : default value? idk? nothing?
-	assert(not load'asserteq(a.b?():5, 4)')
-	assert(not load'asserteq(a:b?():5, 4)')
+	-- and what happens if we proceed a call with a = default value? idk? nothing?
+	assert(not load'asserteq(a.b?()=5, 4)')
+	assert(not load'asserteq(a:b?()=5, 4)')
 end
 --]]
 
 -- [[ ternary also?
 do
-	asserteq(true ?? 1 : 2, 1)
-	asserteq(false ?? 1 : 2, 2)
-	asserteq(true ?? true : 2, true)
-	asserteq(true ?? false : 2, false)
-	asserteq(false ?? true : 2, 2)
-	asserteq(false ?? false : 2, 2)
-	asserteq(1 + 1 ?? false : 2, false)
+	asserteq(true ? 1 : 2, 1)
+	asserteq(false ? 1 : 2, 2)
+	asserteq(true ? true : 2, true)
+	asserteq(true ? false : 2, false)
+	asserteq(false ? true : 2, 2)
+	asserteq(false ? false : 2, 2)
+	asserteq(1 + 1 ? false : 2, false)
 
 	-- ternary has parsing ambiguities with safe-navigation
 	-- I could resolve them maybe if I allowed rewinding tokens
 	-- it gets worse when you consider safe-navigation ?[] and ternary-with-lambdas ?[]
 	local a = []nil
-	local tmp = a() ?? false : 2 asserteq(tmp, 2)
-	asserteq( a() ?? false : 2, 2)
-	asserteq( (a() ?? false : 2), 2)
-	asserteq( ((a()) ?? false : 2), 2)
+	local tmp = a() ? false : 2 asserteq(tmp, 2)
+	asserteq( a() ? false : 2, 2)
+	asserteq( (a() ? false : 2), 2)
+	asserteq( ((a()) ? false : 2), 2)
 	local a = {}
-	asserteq(a.b ?? false : 2, 2)
-	asserteq(a?.b ?? false : 2, 2)
+	asserteq(a.b ? false : 2, 2)
+	asserteq(a?.b ? false : 2, 2)
 
-	local a = {} local x = a.b ?? 1 : 2 asserteq(x, 2)
+	local a = {} local x = a.b ? 1 : 2 asserteq(x, 2)
 	local a = {} local x = a.b?.c or 2 asserteq(x, 2)
 
 	-- ternary with optional clauses?
 	-- omit the 2nd to use the 1st's value ... to work like safe-navigation / null-coalescence
 	-- omit the 3rd to use nil ... is there a degenerate use case for this? other than ternary?  maybe I should force a 3rd arg?
-	asserteq(true ?? 1 : 2, 1)
-	asserteq(true ??: 2, true)
-	asserteq(true ?? 1, 1)
-	asserteq(false ?? 1 : 2, 2)
-	asserteq(false ??: 2, 2)
-	asserteq(false ?? 1, nil)
-	assert(load'return false ??: false')
-	assert(not load'return false ??:')	-- 3rd arg must be provided
+	asserteq(true ? 1 : 2, 1)
+	asserteq(true ?? 2, true)
+	--asserteq(true ? 1, 1)
+	asserteq(false ? 1 : 2, 2)
+	asserteq(false ?? 2, 2)
+	--asserteq(false ? 1, nil)
+	assert(load'return false ?? false')
+	assert(not load'return false ??')	-- null-coalescing 2nd arg must be provided
 end
 --]]
 

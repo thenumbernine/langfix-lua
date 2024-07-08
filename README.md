@@ -43,9 +43,9 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- A lambda that truncates to the first value of a vararg will look like `[...]((...))`.
 - Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
 - "safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
-	- "safe-navigation-assign operator": `a?.b:c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
-- Ternary operator: `a ?? b : c` works with false `b` values unlike `a and b or c`.  I'm using `??` instead of `?` because safe-navigation and ternary clash, so does safe-navigation and self-call, so does ternary and lambdas ...
-	- Ternary 2nd argument defaults to the 1st.  `a ??: b` returns `a` if present, `b` otherwise.
+	- "safe-navigation-assign operator": `a?.b=c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
+- Ternary operator: `a ? b : c` works with false `b` values unlike `a and b or c`.
+- Null-coalescing operator `a ?? b` returns `a` if present, `b` otherwise.  I wanted to make this just a ternary with 2nd argument omitted, but `a?:b` would conflict with the safe-navigation self-call operator `a?:b()`.
 	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
 ### TODO
@@ -61,8 +61,6 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - Think of a new file extension to use?
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
-
-- I could use traditional ternary `a?b:c` combined with safe-navigation `a?.b?:c()` so long as I 1) make null-coalescence an operator of its own, like `a??b`, instead of a ternary with 2nd arg missing `a?:b` and 2) force safe-navigation to not have spaces between the `?` and `.`...
 
 ### Complementing Features In Other Libraries:
 - [`lua-ext`](https://github.com/thenumbernine/lua-ext):
