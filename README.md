@@ -6,7 +6,14 @@ It's backwards-compatible with old Lua(/JIT) code.
 
 ### How to use it?
 
-You can use
+Put the file `rua` in your bin directory:
+
+``` sh
+#!/bin/sh
+rlwrap /path/to/langfix/run.lua "$@"
+```
+
+You can also use
 
 ``` sh
 lua -llangfix $filename
