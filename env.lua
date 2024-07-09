@@ -13,7 +13,28 @@ return function(env)
 
 	-- set globals here
 	env = env or _G
-	env.ffi = require 'ffi'
+
+	-- put ffi in env namespace for idiv // operator
+	local ffi	-- store it here for the langfix env table
+	xpcall(function()
+		ffi = require 'ffi'
+		env.ffi = ffi
+	end, function()
+	end)
+
+	-- put 'bit' in the env if it's not there ... for vanilla-lua 5.2 and 5.3(compat?)
+	local native_bitops = load'x=y|z'
+	if not native_bitops then
+		env.bit = bit
+		if not env.bit then
+			-- TODO in this case, bit32 doesn't have all operations that the luajit bit table does ...
+			env.bit = bit32
+			if not env.bit32 then
+				env.bit = require 'bit'	-- will this be there? or should I try ext.op ?
+			end
+		end
+	end
+
 	local langfix = {}	-- for builtin helpers.  maybe I'll put bitwise metatable invocation here. maybe I'll put other helper functions here.
 	env.langfix = langfix
 	langfix.ternary = function(t, cbt, cbf)
@@ -50,6 +71,32 @@ return function(env)
 		return langfix.optcall(langfix.optindex(t, k, optassign), t, ...)
 	end
 
+	-- notice ffi doesn't load in vanilla lua, so for vanilla lua < 5.3 this will all break
+	local native_idiv = load'x=y//z'
+	local function intptrcode(arg)
+		return ffi.cast('intptr_t', arg)
+	end
+	if ffi then	-- luajit
+		langfix.idiv = function(a, b)
+			-- [[ as integers, but requires ffi access ...
+			-- parenthesis required?
+			-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
+			-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
+			return intptrcode(a) / intptrcode(b)
+			--]]
+			--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
+			return '((function()'
+				..' local x = '..args:concat'/'
+				..' return x < 0 and math.ceil(x) or math.floor(x)'
+				..' end)())'
+			--]]
+		end
+	else	-- vanilla-lua without //
+		langfix.idiv = function(a,b)
+			return math.floor(a / b)
+		end
+	end
+
 	local LuaFixedTokenizer = LuaTokenizer:subclass()
 
 	local LuaFixedParser = LuaParser:subclass()
@@ -66,18 +113,18 @@ return function(env)
 		{'subto', '-='},
 		{'multo', '*='},
 		{'divto', '/='},
-		{'idivto', '//='},
+		{'idivto', '//=', not native_idiv and 'langfix.idiv(%1, %2)' or nil},
 		{'modto', '%='},
 		{'powto', '^='},
-		{'bandto', '&=', 'bit.band(%1, %2)'},
-		{'borto', '|=', 'bit.bor(%1, %2)'},
+		{'bandto', '&=', not native_bitops and 'bit.band(%1, %2)' or nil},
+		{'borto', '|=', not native_bitops and 'bit.bor(%1, %2)' or nil},
 		-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
 		-- coincidentally, xor is sometimes denoted as the not-equivalent symbol, because that's basically what it means, but how to distinguish between boolean and bitwise ...
 		-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
-		{'bxorto', '~~=', 'bit.bxor(%1, %2)'},	-- tempting to use ⊕= and just use ⊕ for xor ...
-		{'shlto', '<<=', 'bit.lshift(%1, %2)'},
-		{'shrto', '>>=', 'bit.rshift(%1, %2)'},
-		{'ashrto', '>>>=', 'bit.arshift(%1, %2)'},
+		{'bxorto', '~~=', not native_bitops and 'bit.bxor(%1, %2)' or '%1 ~ %2'},	-- tempting to use ⊕= and just use ⊕ for xor ...
+		{'shlto', '<<=', not native_bitops and 'bit.lshift(%1, %2)' or nil},
+		{'shrto', '>>=', not native_bitops and 'bit.rshift(%1, %2)' or nil},
+		{'ashrto', '>>>=', not native_bitops and 'bit.arshift(%1, %2)' or nil},
 	}:mapi(function(info)
 		local name, op, binopexpr = table.unpack(info)
 		binopexpr = binopexpr or '%1 '..op:sub(1, -2)..' %2'
@@ -108,30 +155,14 @@ return function(env)
 	ast._shl = ast._shl:subclass()
 	ast._shr = ast._shr:subclass()
 
-	local function intptrcode(arg)
-		return "ffi.cast('intptr_t',"..arg..')'
-	end
-
-	if not load'x=y//z' then
-		function ast._idiv:serialzie(apply)
-			-- [[ as integers, but requires ffi access ...
-			-- parenthesis required?
-			-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
-			-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
-			local args = table.mapi(self, apply):mapi(intptrcode)
-			return '('..args:concat'/'..')'
-			--]]
-			--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
-			return '((function()'
-				..' local x = '..args:concat'/'
-				..' return x < 0 and math.ceil(x) or math.floor(x)'
-				..' end)())'
-			--]]
+	if not native_idiv then
+		function ast._idiv:serialize(apply)
+			return 'langfix.idiv('..table.mapi(self, apply):concat','..')'
 		end
 	end
 
 	-- don't override these if we're running in pure-Lua (except arshift, which will need its own implementation somewhere ... TODO)
-	if not load'x=y|z' then
+	if not native_bitops then
 		for _,info in ipairs{
 			{type='band'},
 			{type='bxor'},
@@ -328,6 +359,7 @@ langfix.optcallself(
 		end
 	end
 
+	-- TODO just give the tokenizer the ast, make the child tokens enumerable, and enum and put them all in self.symbols
 	function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 		LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
 
@@ -335,6 +367,8 @@ langfix.optcallself(
 		for _,cl in ipairs(assignops) do
 			self.symbols:insert(cl.op)
 		end
+
+		self.symbols:insert'//'	-- always add idiv symbol
 
 		-- safe-navigation token, pairs with ?. ?: ?[ ?(
 		self.symbols:insert'?.'

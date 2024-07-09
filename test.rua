@@ -49,12 +49,14 @@ asserteq(2 << 2, 8)
 
 -- op-assign
 do
-	x = 1
-	x += 2
-	asserteq(x, 3)
+	local x = 1 x += 2 asserteq(x, 3)
+end
+do
+	local x = 7 x /= 2 asserteq(x, 3.5)
+	local x = 7 x //= 2 asserteq(x, 3)
 end
 --asserteq(x, nil)	-- local-by-default
-x = nil				-- ... until I get it working
+--x = nil				-- ... until I get it working
 
 -- pack op assign
 do
@@ -76,7 +78,7 @@ asserteq(g(3), (3+1) << (3-1))
 if int then asserteq(int(7)/int(2), int(3)) end
 
 -- integer division TODO has errors
---print(7//2, 3)
+asserteq(7//2, 3)
 
 -- lambda + function-operator
 asserteq((([x]x+1) * ([x]x-1))(3), 8)
