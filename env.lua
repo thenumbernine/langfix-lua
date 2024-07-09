@@ -530,7 +530,9 @@ langfix.optcallself(
 				assert(c, msg)
 				self:mustbe(')', 'symbol')
 			else
-				c = self:parse_exp_ternary()
+				--c = self:parse_prefixexp()
+				c = self:parse_exp_or()
+				--c = self:parse_exp_ternary()
 				assert(c, msg)
 				c = table{c}
 			end
@@ -540,7 +542,6 @@ langfix.optcallself(
 		--if self:canbe('?', 'symbol') then
 		-- TODO can't use ? or it messes with safe-navigation ... or I could change safe-navigation ...
 		if self:canbe('?', 'symbol') then
-			--local b = self:parse_exp_or()
 			local b = parseOneOrMany"expected a ? b : c or a ?? c"
 
 			-- should I allow the ternary to not provide an 'else', and it default to nil?

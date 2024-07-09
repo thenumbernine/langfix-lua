@@ -186,11 +186,22 @@ do
 	-- ternary has parsing ambiguities with safe-navigation
 	-- I could resolve them maybe if I allowed rewinding tokens
 	-- it gets worse when you consider safe-navigation ?[] and ternary-with-lambdas ?[]
+
 	local a = []nil
 	local tmp = a() ? false : 2 asserteq(tmp, 2)
 	asserteq( a() ? false : 2, 2)
 	asserteq( (a() ? false : 2), 2)
 	asserteq( ((a()) ? false : 2), 2)
+
+	-- hmm for ternary we always need () wrapping any expr with () in it ...
+	-- probably because a():b() is a valid prefixexp ...
+
+	--asserteq( true ? a() : 2, a() )	-- doesn't work, probably because a():2 could be a self-call
+	asserteq( true ? (a()) : 2, a() )	-- ... extra () fixes it
+	asserteq( true ? 2 : a(), 2 )		-- 3rd arg can end in () no problem
+	--asserteq( true ? 2 : (b):c(), 2 )	-- doesn't work because	the 3rd expression starts in a ( which indicates to the parser it is wrapped in () for multret's sake, but this expression is not ...
+	asserteq( true ? 2 : ((b):c()), 2 )	-- ... extra () fixes it
+
 	local a = {}
 	asserteq(a.b ? false : 2, 2)
 	asserteq(a?.b ? false : 2, 2)
