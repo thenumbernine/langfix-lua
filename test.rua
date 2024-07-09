@@ -50,8 +50,7 @@ asserteq(2 << 2, 8)
 -- op-assign
 do
 	local x = 1 x += 2 asserteq(x, 3)
-end
-do
+	local x = {a=3, b=[]4} x.a += x:b() asserteq(x.a, 7)
 	local x = 7 x /= 2 asserteq(x, 3.5)
 	local x = 7 x //= 2 asserteq(x, 3)
 end

@@ -54,6 +54,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 - Ternary operator: `a ? b : c` works with false `b` values unlike `a and b or c`.
 	- Ternary with 2nd args ending in a call `()` will need to be wrapped in `()`, due to the fact that `a():b()` could be a ternary 2nd and 3rd, and could be a valid prefix-expression self-call of `a()`'s result's member-function `b()`.
 	- Ternary with either args beginning in a `(` ... if it is not a wrapping `()` ... then you will need an extra wrapping `()`, due to the ternary-return-multiple-values requiring (and looking for) extra wrapping `()`'s.
+	- So in general most your ternary operators will have their 2nd and 3rd arguments wrapped in `()`.  I can fix this if I change the ternary symbols, since `:` and `?:` is used elsewhere, in prefix-expressions and in safe-navigation.
 - Null-coalescing operator `a ?? b` returns `a` if present, `b` otherwise.  I wanted to make this just a ternary with 2nd argument omitted, but `a?:b` would conflict with the safe-navigation self-call operator `a?:b()`.
 	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
