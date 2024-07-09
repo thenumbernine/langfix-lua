@@ -664,4 +664,21 @@ langfix.optcallself(
 		end))
 		return result
 	end)
+
+	--[[
+	this gets returned by `require 'langfix'`, and I am suspicious someone is writing it to _G.langfix, which can overwrite env.langfix ... all very ugly ... idk
+	somehow somewhere someone was setting _G.langfix=true, and I can only guess it's because someone was setting _G.langfix = require'langfix' (only when using the -l option in vanilla-lua, even 5.3 and 5.4)
+	 and couple that with the fact that this function returns nothing, so `require 'langfix'` will return true ...
+	 in other words the need to return env.langfix here all stems from a design behavior that -l<library> should always assign `_G.library = require'library'`
+
+	see the behavior yourself:
+	a.lua:
+		a=42
+	lua -la -e "print('a',a)"
+		a	true
+	lua -e "require 'a' print('a', a)"
+		a	42
+
+	--]]
+	return langfix
 end
