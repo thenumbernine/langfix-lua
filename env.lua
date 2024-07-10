@@ -10,8 +10,8 @@ return function(env)
 	local LuaParser = require 'parser.lua.parser'
 	local LuaTokenizer = require 'parser.lua.tokenizer'
 
-
 	-- set globals here
+
 	env = env or _G
 
 	-- put ffi in env namespace for idiv // operator
@@ -71,18 +71,19 @@ return function(env)
 		return langfix.optcall(langfix.optindex(t, k, optassign), t, ...)
 	end
 
+	--local ztable = require '0-based'
+
+
 	-- notice ffi doesn't load in vanilla lua, so for vanilla lua < 5.3 this will all break
 	local native_idiv = load'x=y//z'
-	local function intptrcode(arg)
-		return ffi.cast('intptr_t', arg)
-	end
+	local intptr_t = ffi and ffi.typeof'intptr_t' or nil
 	if ffi then	-- luajit
 		langfix.idiv = function(a, b)
 			-- [[ as integers, but requires ffi access ...
 			-- parenthesis required?
 			-- I think I got away with not using () to wrap generated-code because of the fact that always the code was generated from sources with correct precedence as it was parsed
 			-- so by the fact that the language was specified correctly, so was the AST represented correctly, and so the regenerated code was also correct.
-			return intptrcode(a) / intptrcode(b)
+			return intptr_t(a) / intptr_t(b)
 			--]]
 			--[[ as floats but with floor ... ?  needs a math.sign or math.trunc function, how easy is that to write without generating anonymous lambdas or temp variables?
 			return '((function()'
@@ -188,7 +189,7 @@ return function(env)
 				--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
 				-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
 				-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
-				args = args:mapi(intptrcode)
+				args = args:mapi(intptr_t)
 				--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
 				return '(bit.'..func..'('..args:concat','..'))'
 			end
