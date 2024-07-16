@@ -532,8 +532,8 @@ langfix.optcallself(
 				self:mustbe(')', 'symbol')
 			else
 				--c = self:parse_prefixexp()
-				c = self:parse_exp_or()
-				--c = self:parse_exp_ternary()
+				--c = self:parse_exp_or()	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
+				c = self:parse_exp_ternary()
 				assert(c, msg)
 				c = table{c}
 			end
