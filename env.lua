@@ -276,7 +276,7 @@ langfix.optindex(
 		return template([[
 langfix.optindex(
 	<?=apply(self.expr)?>,
-	<?=apply(ast._string(self.key))?>,
+	<?=apply(self.parser:node('_string', self.key))?>,
 <? if self.optassign then
 ?>	function() return <?=apply(self.optassign)?> end
 <? else
@@ -301,7 +301,7 @@ langfix.optindex(
 			return template([[
 langfix.optcallself(
 	<?=apply(func.expr)?>,
-	<?=apply(ast._string(func.key))?>,
+	<?=apply(self.parser:node('_string', func.key))?>,
 <? if func.optassign then
 ?>	function() return <?=apply(func.optassign)?> end
 <? else
@@ -340,7 +340,7 @@ langfix.optcall(<?=table{func}:append(self.args):mapi(apply):concat','?>)
 			return template([[
 langfix.optcallself(
 	<?=apply(func.expr)?>,
-	<?=apply(ast._string(func.key))?>,
+	<?=apply(self.parser:node('_string', func.key))?>,
 <? if func.optassign then
 ?>	function() return <?=apply(func.optassign)?> end
 <? else
@@ -422,10 +422,10 @@ langfix.optcallself(
 		if self:canbe('(', 'symbol') then
 			local exp = assert(self:parse_exp())
 			self:mustbe(')', 'symbol')
-			prefixexp = ast._par(exp)
+			prefixexp = self:node('_par', exp)
 				:setspan{from = from, to = self:getloc()}
 		elseif self:canbe(nil, 'name') then
-			prefixexp = ast._var(self.lasttoken)
+			prefixexp = self:node('_var', self.lasttoken)
 				:setspan{from = from, to = self:getloc()}
 		else
 			return
@@ -434,26 +434,28 @@ langfix.optcallself(
 		while true do
 			local opt = self:canbe('?[', 'symbol')
 			if opt or self:canbe('[', 'symbol') then
-				local cl = opt and ast._optindex or ast._index
-				prefixexp = cl(prefixexp, assert(self:parse_exp()))
+				local classname = opt and '_optindex' or '_index'
+				prefixexp = self:node(classname, prefixexp, assert(self:parse_exp()))
 				self:mustbe(']', 'symbol')
 				prefixexp:setspan{from = from, to = self:getloc()}
 			else
 				opt = self:canbe('?.', 'symbol')
 				if opt or self:canbe('.', 'symbol') then
-					local cl = opt and ast._optindex or ast._index
+					local classname = opt and '_optindex' or '_index'
 					local sfrom = self:getloc()
-					prefixexp = cl(
+					prefixexp = self:node(
+						classname,
 						prefixexp,
-						ast._string(self:mustbe(nil, 'name'))
+						self:node('_string', self:mustbe(nil, 'name'))
 							:setspan{from = sfrom, to = self:getloc()}
 					)
 					:setspan{from = from, to = self:getloc()}
 				else
 					opt = self:canbe('?:', 'symbol')
 					if opt or self:canbe(':', 'symbol') then
-						local cl = opt and ast._optindexself or ast._indexself
-						prefixexp = cl(
+						local classname = opt and '_optindexself' or '_indexself'
+						prefixexp = self:node(
+							classname,
 							prefixexp,
 							self:mustbe(nil, 'name')
 						):setspan{from = from, to = self:getloc()}
@@ -462,34 +464,34 @@ langfix.optcallself(
 						-- but if I do that then I have to handle ? as a separate symbol to the indexes
 						-- and in doing so it makes index and ternary mix up
 						-- (another fix i had for this was changing ternary, but that's pretty established...)
-						local args, clcall
+						local args, callClassName
 						if self:canbe('?(', 'symbol') then
 							-- no implicit () with string or table when using safe-navigation
 							args = self:parse_explist() or {}
 							self:mustbe(')', 'symbol')
-							clcall = ast._optcall
+							callClassName = '_optcall'
 						else
 							args = self:parse_args()
-							clcall = ast._call
+							callClassName = '_call'
 						end
 
 						assert(args, "function arguments expected")
-						prefixexp = clcall(prefixexp, table.unpack(args))
+						prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
 							:setspan{from = from, to = self:getloc()}
 					else
-						local args, clcall
+						local args, callClassName
 						if self:canbe('?(', 'symbol') then
 							-- no implicit () with string or table when using safe-navigation
 							args = self:parse_explist() or {}
 							self:mustbe(')', 'symbol')
-							clcall = ast._optcall
+							callClassName = '_optcall'
 						else
 							args = self:parse_args()
 							if not args then break end
-							clcall = ast._call
+							callClassName = '_call'
 						end
 
-						prefixexp = clcall(prefixexp, table.unpack(args))
+						prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
 							:setspan{from = from, to = self:getloc()}
 					end
 				end
@@ -549,12 +551,12 @@ langfix.optcallself(
 			self:mustbe(':', 'symbol')
 			local c = parseOneOrMany"expected a ? b : c or a ?? c"
 
-			a = ast._ternary(a, b, c)
+			a = self:node('_ternary', a, b, c)
 				:setspan{from = a.span.from, to = self:getloc()}
 		elseif self:canbe('??', 'symbol') then
 			local b
 			local c = parseOneOrMany"expected a ?? c"
-			a = ast._ternary(a, b, c)
+			a = self:node('_ternary', a, b, c)
 				:setspan{from = a.span.from, to = self:getloc()}
 		end
 		return a
@@ -580,7 +582,7 @@ langfix.optcallself(
 			end
 			args = args or table()
 			if selffirst then
-				args:insert(1, ast._var'self')
+				args:insert(1, self:node('_var', 'self'))
 			end
 
 			local lastArg = args:last()
@@ -609,7 +611,7 @@ langfix.optcallself(
 				if self:canbe('(', 'symbol') then
 					local explist = self:parse_explist()
 					assert(explist, "expected expression")
-					block = {ast._return(table.unpack(explist))}
+					block = {self:node('_return', table.unpack(explist))}
 					self:mustbe(')', 'symbol')
 				else
 					-- implicit return of single-expression
@@ -620,12 +622,12 @@ langfix.optcallself(
 					--[[ will require parentehsis to wrap
 					local exp = self:parse_prefixexp()
 					assert(exp, "expected expression")
-					block = {ast._return(exp)}
+					block = {self:node('_return', exp)}
 					--]]
 					-- [[ won't require parenthesis to wrap
 					local exp = self:parse_exp()
 					assert(exp, "expected expression")
-					block = {ast._return(exp)}
+					block = {self:node('_return', exp)}
 					--]]
 					--[[ mult-ret, doesn't require () to wrap the return,
 					-- but successive ,'s after will get lumped into the mult-ret
@@ -634,7 +636,7 @@ langfix.optcallself(
 					-- (instead of two separate comma-separated expressions)
 					local explist = self:parse_explist()
 					assert(explist, "expected expression")
-					block = {ast._return(table.unpack(explist))}
+					block = {self:node('_return', table.unpack(explist))}
 					--]]
 				end
 			end
