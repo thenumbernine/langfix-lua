@@ -1,2 +1,2 @@
 #!/bin/sh
-luajit -llangfix run.lua "$@"
+luajit run.lua "$@"

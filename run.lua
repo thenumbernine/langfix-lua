@@ -1,4 +1,8 @@
 #!/usr/bin/env luajit
+--[[
+You can use this script as a drop-in replacement for Lua itself, to provide either a CLI or to run files within the "rua" environment/parser.
+--]]
+
 require 'ext'
 --require 'local-default' -- ... but this uses a shim parser, which langfix does too, so hmm
 if jit then require 'ext.ctypes' end
@@ -7,7 +11,6 @@ require 'langfix.env'(_G)
 
 -- and while we're here , modify package.path to accept our new extension as well
 -- or should this be done in langfix.lua?
--- or should it be done in run.sh?
 local string = require 'ext.string'
 local path = require 'ext.path'
 local newext = 'rua'	-- idk

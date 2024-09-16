@@ -4,6 +4,34 @@ local template = require 'template'
 local LuaParser = require 'parser.lua.parser'
 
 local ast = table(LuaParser.ast)
+local LuaAST = ast.node
+
+-- subclass all our AST classes so our modifications don't mess with the original LuaParser
+for _,k in ipairs(table.keys(ast)) do
+	local cl = ast[k]
+	if LuaAST:isa(cl) then
+		ast[k] = cl:subclass()
+	end
+end
+
+local function toLuaFixed(x)
+	if x.toLuaFixed then return x:toLuaFixed() end
+	return x:serialize(toLuaFixed)
+end
+
+-- weakness to this design ...i need to always keep specifying the above toLang() wrapper, or I have to make a seprate member function...
+for k,cl in pairs(ast) do
+	if LuaAST:isa(cl) then
+		function cl:toLuaFixed_recursive(apply)
+			return self:serialize(apply)
+		end
+		function cl:toLuaFixed()
+			return self:toLuaFixed_recursive(toLuaFixed)
+		end
+	end
+end
+
+
 
 -- I could insert >>> into the symbols and map it to luajit arshift ...
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
@@ -45,6 +73,12 @@ local assignops = table{
 				..')'
 		end):concat','
 	end
+	function cl:toLuaFixed_recursive(apply)
+		return table.mapi(self.vars, apply):concat','
+			..' '..op..' '
+			..table.mapi(self.exprs, apply):concat','
+	end
+
 	return cl
 end)
 ast.assignops = assignops
@@ -60,6 +94,9 @@ ast._shr = ast._shr:subclass()
 if not native_idiv then
 	function ast._idiv:serialize(apply)
 		return 'langfix.idiv('..table.mapi(self, apply):concat','..')'
+	end
+	function ast._idiv:toLuaFixed_recursive(apply)
+		return table.mapi(self, apply):concat' // '
 	end
 end
 
@@ -88,6 +125,9 @@ if not native_bitops then
 		--cl = cl:subclass()	-- TODO fixme
 		ast[key] = cl
 
+		-- in this case the original serialize, which is for native bitops, is the LuaFixed serialize
+		cl.toLuaFixed_recursive = cl.serialize
+
 		-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
 		function cl:serialize(apply)
 			local args = table.mapi(self, apply)
@@ -111,26 +151,39 @@ do
 	ast._ternary = _ternary
 	function _ternary:serialize(apply)
 		return template([[
-langfix.ternary(
-	<?=apply(self[1])?>,
-<? if self[2] then
-?>	function() return <?=commasep(self[2], apply)?> end
-<? else
-?>	nil
-<? end
-?>,
-<? if self[3] then
-?>	function() return <?=commasep(self[3], apply)?> end
-<? else
-?>	nil
-<? end
-?>
-)
-]],		{
+langfix.ternary(<?=apply(self[1])
+?>,<?
+if self[2] then
+?> function() return <?=commasep(self[2], apply)?> end <?
+else
+?> nil <?
+end
+?>,<?
+if self[3] then
+?> function() return <?=commasep(self[3], apply)?> end <?
+else
+?> nil <?
+end
+?>)]],
+		{
 			self = self,
 			apply = apply,
 			commasep = commasep,
 		})
+	end
+	function _ternary:toLuaFixed_recursive(apply)
+		local function serializeOneOrMany(exprs)
+			if exprs == nil then return '' end
+			return '('..table.mapi(exprs, apply):concat','..')'
+		end
+		if self[2] == nil then
+			return apply(self[1])
+				..' ?? '..serializeOneOrMany(self[3])
+		else
+			return apply(self[1])
+				..' ? '..serializeOneOrMany(self[2])
+				..' : '..serializeOneOrMany(self[3])
+		end
 	end
 end
 
@@ -154,19 +207,25 @@ ast._optindex = ast._index:subclass()
 ast._optindex.type = 'optindex'
 function ast._optindex:serialize(apply)
 	return template([[
-langfix.optindex(
-	<?=apply(self.expr)?>,
-	<?=apply(self.key)?>,
-<? if self.optassign then
-?>	function() return <?=apply(self.optassign)?> end
-<? else
-?>	nil
-<? end
-?>)
-]],	{
+langfix.optindex(<?=
+apply(self.expr)
+?>,<?=
+apply(self.key)
+?>, <?
+if self.optassign then
+?> function() return <?=apply(self.optassign)?> end <?
+else
+?> nil <?
+end ?>)]],
+	{
 		self = self,
 		apply = apply,
 	})
+end
+function ast._optindex:toLuaFixed_recursive(apply)
+	return apply(self.expr)
+		..'?['..apply(self.key)..']'
+		..(self.optassign and ' = '..apply(self.optassign) or '')
 end
 
 -- ok here's where I start to break things
@@ -179,20 +238,26 @@ function ast._optindexself:serialize(apply)
 	error('here with parent '..tostring(self.parent.type))
 	-- indexself key is a Lua string so don't apply()
 	return template([[
-langfix.optindex(
-	<?=apply(self.expr)?>,
-	<?=apply(self.parser:node('_string', self.key))?>,
-<? if self.optassign then
-?>	function() return <?=apply(self.optassign)?> end
-<? else
-?>	nil
-<? end
-?>)
-]],	{
+langfix.optindex(<?=
+apply(self.expr)
+?>, <?=
+apply(self.parser:node('_string', self.key))
+?>, <?
+if self.optassign then
+?> function() return <?=apply(self.optassign)?> end <?
+else
+?> nil <?
+end
+?>)]],
+	{
 		self = self,
 		ast = ast,
 		apply = apply,
 	})
+end
+function ast._optindexself:toLuaFixed_recursive(apply)
+	return apply(self.expr)..'?:'..self.key
+		..(self.optassign and ' = '..apply(self.optassign) or '')
 end
 
 -- subclass the original _call, not our new one ...
@@ -204,17 +269,19 @@ function ast._optcall:serialize(apply)
 	if ast._optindexself:isa(func) then
 		-- optcall optindexself
 		return template([[
-langfix.optcallself(
-	<?=apply(func.expr)?>,
-	<?=apply(self.parser:node('_string', func.key))?>,
-<? if func.optassign then
-?>	function() return <?=apply(func.optassign)?> end
-<? else
-?>	nil
-<? end
-?>	<?=table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()?>
-)
-]],		{
+langfix.optcallself(<?=
+apply(func.expr)
+?>,<?=
+apply(self.parser:node('_string', func.key))
+?>,<?
+if func.optassign then
+?> function() return <?=apply(func.optassign)?> end <?
+else
+?> nil <?
+end ?> <?=
+table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
+?>)]],
+		{
 			self = self,
 			func = func,
 			ast = ast,
@@ -235,25 +302,34 @@ langfix.optcall(<?=table{func}:append(self.args):mapi(apply):concat','?>)
 		})
 	end
 end
+function ast._optcall:toLuaFixed_recursive(apply)
+	local func = self.func
+	return apply(self.func)
+		..'?('..table.mapi(self.args, apply):concat','..')'
+end
 
 -- and for optindexself to work, now I have to add exceptions to call...
 local _call = ast._call:subclass()
 ast._call = _call
+_call.toLuaFixed_recursive = _call.serialize	-- old serialize = langfix grammar
 function _call:serialize(apply)
 	local func = self.func
 	if ast._optindexself:isa(func) then
 		return template([[
-langfix.optcallself(
-	<?=apply(func.expr)?>,
-	<?=apply(self.parser:node('_string', func.key))?>,
-<? if func.optassign then
-?>	function() return <?=apply(func.optassign)?> end
-<? else
-?>	nil
-<? end
-?>	<?=table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()?>
-)
-]],		{
+langfix.optcallself(<?=
+apply(func.expr)
+?>, <?=
+apply(self.parser:node('_string', func.key))
+?>, <?
+if func.optassign then
+?> function() return <?=apply(func.optassign)?> end <?
+else
+?> nil <?
+end
+?> <?=
+table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
+?>)]],
+		{
 			self = self,
 			func = func,
 			apply = apply,

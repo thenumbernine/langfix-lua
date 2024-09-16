@@ -123,14 +123,14 @@ function LuaFixedParser:parse_prefixexp()
 			end
 		end
 
--- [[ safe-navigation suffix `:` for optional-assignment to the key if it doesn't exist
+-- [[ safe-navigation suffix `=` for optional-assignment to the key if it doesn't exist
 -- if you just want optional value, use ternary `? :` / null-coalescence `??`
 		if opt and self:canbe('=', 'symbol') then
 			if ast._optcall:isa(prefixexp) then
 				error("safe-navigation-assign only works after indexes, not calls")
 			end
 			local exp = self:parse_exp()
-			assert(exp, "safe-navigation-assignment ?. : expected an expression")
+			assert(exp, "safe-navigation-assignment ?. = expected an expression")
 			prefixexp.optassign = exp
 		end
 --]]
@@ -168,8 +168,6 @@ function LuaFixedParser:parse_exp_ternary()
 		return c
 	end
 
-	--if self:canbe('?', 'symbol') then
-	-- TODO can't use ? or it messes with safe-navigation ... or I could change safe-navigation ...
 	if self:canbe('?', 'symbol') then
 		local b = parseOneOrMany"expected a ? b : c or a ?? c"
 

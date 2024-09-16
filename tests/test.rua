@@ -1,4 +1,4 @@
-#!/usr/bin/env ./run.sh
+#!/usr/bin/env rua
 
 -- single-statement lambdas
 asserteq( ([]1)(), 1)
@@ -149,10 +149,14 @@ end
 -- [[ safe-navigation-assignment
 do
 	local a = {}
-	asserteq(a.b, nil)	asserteq(a?.b=2, 2)	asserteq(a.b, 2)
+	asserteq(a.b, nil)
+	asserteq(a?.b=2, 2)
+	asserteq(a.b, 2)
 	--optional-write
 	local d = {}
-	asserteq(a.c, nil)	asserteq(a?.c=d, d)	asserteq(a.c, d)
+	asserteq(a.c, nil)
+	asserteq(a?.c=d, d)
+	asserteq(a.c, d)
 	--optional-read without write using ternary operator
 	asserteq(a?.e?.f ?? d, d)	asserteq(a?.e?.f, nil)
 
