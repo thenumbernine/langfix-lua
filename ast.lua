@@ -341,4 +341,33 @@ table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
 	end
 end
 
+--[[
+if function is a single-return-statement we can use []expr
+if it's a mult-ret single-expression we have to use [](exprs)
+if it's a call then there's certain situations (like if it's nested in a ternary operator) that we'll still have to wrap in ( )
+if it originally returned wrapped in () to truncate args then yeah definitely we'll have to wrap an additional ()
+
+if the function is multiple-stmts then we can use []do ... end
+--]]
+function ast._function:toLuaFixed_recursive(apply)
+	local s = ''
+	if self.name then s = apply(self.name)..' = '..s end
+	s = s .. '['..table.mapi(self.args, apply):concat','..']'
+	if #self == 1
+	and ast._return:isa(self[1])
+	then
+		local ret = self[1]
+		-- TODO when is this necessary due to mult-ret?
+		-- when is this necessary due to parent wrapping being ternary or single-expr lambda or something?
+		s = s .. '('
+		s = s .. table.mapi(ret.exprs, apply):concat','
+		s = s .. ')'
+	else
+		s = s .. 'do '
+		s = s .. table.mapi(self, apply):concat' '
+		s = s ..' end'
+	end
+	return s
+end
+
 return ast
