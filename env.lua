@@ -99,7 +99,7 @@ return function(env)
 			parser:setData(data, source)
 			tree = parser.tree
 			result = tree:toLua()
-print('\n'..source..'\n'..showcode(result)..'\n')
+--DEBUG(langfix):print('\n'..source..'\n'..showcode(result)..'\n')
 		end, function(err)
 			return '\n'
 				--..(source or ('['..data:sub(1,10)..'...]'))..'\n'		-- ext.load already handles this
