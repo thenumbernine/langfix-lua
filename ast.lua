@@ -224,8 +224,11 @@ end ?>)]],
 end
 function ast._optindex:toLuaFixed_recursive(apply)
 	return apply(self.expr)
-		..'?['..apply(self.key)..']'
-		..(self.optassign and ' = '..apply(self.optassign) or '')
+		..'?'
+		..(ast.keyIsName(self.key, self.parser)
+			and '.'..self.key.value
+			or '['..apply(self.key)..']'
+		)..(self.optassign and ' = '..apply(self.optassign) or '')
 end
 
 -- ok here's where I start to break things
