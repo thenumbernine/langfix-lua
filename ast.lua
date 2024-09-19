@@ -32,6 +32,169 @@ for k,cl in pairs(ast) do
 end
 
 
+-- need to emit code and also include a way to track current state
+-- that means upon first call, here, start a state object that points back to here
+-- so that this object (`apply` down below) can query the current serialization progress so far
+-- so that I can realign lines of code to be where they originally were
+-- in terms of doing that - producing output to match input - i see two strategies: 1) this, and 2) collecting allll tokens incl spaces and comments
+-- SOMETHING WEIRD IS GOING ON IN HERE
+--  IF I CALL THIS WITHOUT REQUIRE EXT <-> STRING METATABLE CONCAT SETUP AS STRING.CONCAT
+--   THEN THIS WORKS CORRECTLY -- ONE TREE PER PARSE
+--  BUT IF I HAVE REQUIRE EXT <-> STRING METATABLE CONCAT = STRING.CONCAT WHICH TOSTRINGS()S ALL CONCAT INPUTS TO STRINGS
+--   THEN THIS ONLY PARSES ONE LINE AT A TIME
+-- Also when it does work it isn't 100%.  Parse locations are at the previous token location.  from() is always messed up.
+--[=======[
+local class = require 'ext.class'
+local asserteq = require 'ext.assert'.eq
+local asserttype = require 'ext.assert'.type
+local OutputNode = class()
+local OutputNodeInToString
+function OutputNode:__tostring()
+assert(not OutputNodeInToString)
+OutputNodeInToString = true
+	local sofar = ''
+	local col = 1
+	local row = 1
+	local function process(x)
+		assert(not OutputNode:isa(x))
+		x = tostring(x)
+		for i=1,#x do
+			if x:byte(i) == ('\n'):byte() then
+				row = row + 1
+				col = 1
+			else
+				col = col + 1
+			end
+		end
+		sofar = sofar .. x
+	end
+	local function recurse(x)
+		if not OutputNode:isa(x) then
+			asserttype(x, 'string')
+			process(x)
+		else
+			if x.left then
+				recurse(x.left)
+			end
+			if x.srcnode then
+				assert(x.srcnode)
+				assert(LuaAST:isa(x.srcnode))
+-- [[ TODO this can only work if there's only one single OutputNode for the entire parsed code
+				local span = x.srcnode.span
+				local from = span and span.from
+				local targetRow = from and from.line
+				local targetCol = from and from.col
+local prevrow, prevcol = row, col
+				if targetRow and row < targetRow then
+					process(('\n'):rep(targetRow - row))
+				end
+				if targetCol and col < targetCol then
+					process((' '):rep(targetCol - col))
+				end
+print('was', prevrow, prevcol, 'is', row, col, 'target', from and from.line, from and from.col)
+--]]
+			end
+			if x.str then
+				process(x.str)
+			end
+			if x.right then
+				recurse(x.right)
+			end
+		end
+	end
+	recurse(self)
+asserttype(sofar, 'string')
+print('tostring processed', require 'ext.tolua'(sofar)) --('%q'):format(sofar))
+print(debug.traceback())
+print()
+OutputNodeInToString = false
+	return sofar
+end
+local Branch
+function OutputNode.__concat(a,b)
+	assert(OutputNode:isa(a) or type(a)=='string')
+	assert(OutputNode:isa(b) or type(b)=='string')
+--print('Apply concat', type(a), type(b), type(a)=='table' and a.s or a, type(b)=='table' and b.s or b)
+	return Branch(a,b)
+end
+-- declare this before OutputNode.__concat so it can be used, define this after so that it can get OutputNode's __concat definition
+Branch = OutputNode:subclass()
+function Branch:init(a,b)
+	self.left = a
+	self.right = b
+end
+
+
+local Apply = OutputNode:subclass()
+function Apply:init(x)
+--print('Apply:init', type(x), type(x)=='table' and x.str or x)	-- can't tostring yet cuz ... why?
+	if LuaAST:isa(x) then
+--print('ASSIGNING A SRCNODE WITH SPAN', require 'ext.tolua'(x.span))
+		self.srcnode = x
+	else
+		assert(not x.toLua)
+		asserttype(x, 'string')
+		self.str = x
+	end
+end
+local function asttolua(x)
+	if not x.toLua then
+		error('asttolua called on non-ast object '..require 'ext.tolua'(x))
+	end
+	local result = x:toLua_recursive(asttolua)
+	assert(OutputNode:isa(result))
+	assert(getmetatable(result).__concat)
+	return result
+end
+for k,cl in pairs(ast) do
+	if LuaAST:isa(cl) then
+-- [[
+		function cl:toLua_recursive(apply)
+			asserteq(apply, asttolua)
+			-- get the original function's result - it should be default a string, or if it's touched other sublcassd _recurive()'d resulst then it'll be an OutputNode
+			local result = cl.super.toLua_recursive(self, apply)
+			if type(result) == 'string' then
+				result = Apply(result)
+				result.srcnode = self
+			end
+			assert(OutputNode:isa(result))
+			-- pass out an outputnode to build more
+			return result
+		end
+--]]
+
+		-- this should be one single call per parse()'s serialization ...
+		-- don't call it on ast subtrees (or the col/row recreation counter will go out of sync)
+		function cl:toLua()
+print('calling toLua on', self.type)
+			local result = self:toLua_recursive(asttolua)
+			if type(result) == 'string' then
+				result = Apply(result)
+			end
+			assert(OutputNode:isa(result))
+			return tostring(result)
+		end
+	end
+end
+local function onlynumtostr(x)
+	if type(x) == 'number' then return tostring(x) end
+	return x
+end
+local function concat(t, sep)
+	if #t == 0 then return '' end
+	sep = onlynumtostr(sep)
+	local s = onlynumtostr(t[1])
+	for i=2,#t do
+		if sep then s = s .. sep end
+		s = s .. onlynumtostr(t[i])
+	end
+	return s
+end
+--]=======]
+-- [=======[ ... else
+local concat = table.concat
+--]=======]
+
 
 -- I could insert >>> into the symbols and map it to luajit arshift ...
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
@@ -63,7 +226,8 @@ local assignops = table{
 	function cl:serialize(apply)
 		local vars = table.mapi(self.vars, apply)
 		local exprs = table.mapi(self.exprs, apply)
-		return vars:concat','..' = '..vars:mapi(function(v,i)
+		return concat(vars, ',')..' = '
+		..concat(vars:mapi(function(v,i)
 			return '('
 				..binopexpr
 					:gsub('%%%d', function(j)
@@ -71,12 +235,12 @@ local assignops = table{
 						if j == '%2' then return exprs[i] end
 					end)
 				..')'
-		end):concat','
+		end), ',')
 	end
 	function cl:toLuaFixed_recursive(apply)
-		return table.mapi(self.vars, apply):concat','
+		return concat(table.mapi(self.vars, apply), ',')
 			..' '..op..' '
-			..table.mapi(self.exprs, apply):concat','
+			..concat(table.mapi(self.exprs, apply), ',')
 	end
 
 	return cl
@@ -93,10 +257,10 @@ ast._shr = ast._shr:subclass()
 
 if not native_idiv then
 	function ast._idiv:serialize(apply)
-		return 'langfix.idiv('..table.mapi(self, apply):concat','..')'
+		return 'langfix.idiv('..concat(table.mapi(self, apply), ',')..')'
 	end
 	function ast._idiv:toLuaFixed_recursive(apply)
-		return table.mapi(self, apply):concat' // '
+		return concat(table.mapi(self, apply), ' // ')
 	end
 end
 
@@ -136,13 +300,13 @@ if not native_bitops then
 			-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
 			args = args:mapi(intptr_t)
 			--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
-			return '(bit.'..func..'('..args:concat','..'))'
+			return '(bit.'..func..'('..concat(args, ',')..'))'
 		end
 	end
 end
 
 local function commasep(exprs, apply)
-	return table.mapi(exprs, apply):concat','
+	return concat(table.mapi(exprs, apply), ',')
 end
 
 do
@@ -174,7 +338,7 @@ end
 	function _ternary:toLuaFixed_recursive(apply)
 		local function serializeOneOrMany(exprs)
 			if exprs == nil then return '' end
-			return '('..table.mapi(exprs, apply):concat','..')'
+			return '('..concat(table.mapi(exprs, apply), ',')..')'
 		end
 		if self[2] == nil then
 			return apply(self[1])
@@ -282,7 +446,7 @@ if func.optassign then
 else
 ?> nil <?
 end ?> <?=
-table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
+concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
 ?>)]],
 		{
 			self = self,
@@ -296,7 +460,7 @@ table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
 		-- optcall anything else
 		-- can optassign go here? does it mean anything?
 		return template([[
-langfix.optcall(<?=table{func}:append(self.args):mapi(apply):concat','?>)
+langfix.optcall(<?=concat(table{func}:append(self.args):mapi(apply), ',')?>)
 ]], 		{
 			self = self,
 			func = func,
@@ -308,7 +472,7 @@ end
 function ast._optcall:toLuaFixed_recursive(apply)
 	local func = self.func
 	return apply(self.func)
-		..'?('..table.mapi(self.args, apply):concat','..')'
+		..'?('..concat(table.mapi(self.args, apply), ',')..')'
 end
 
 -- and for optindexself to work, now I have to add exceptions to call...
@@ -330,7 +494,7 @@ else
 ?> nil <?
 end
 ?> <?=
-table.mapi(self.args, function(arg) return ', '..apply(arg) end):concat()
+concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
 ?>)]],
 		{
 			self = self,
@@ -355,7 +519,7 @@ if the function is multiple-stmts then we can use []do ... end
 function ast._function:toLuaFixed_recursive(apply)
 	local s = ''
 	if self.name then s = apply(self.name)..' = '..s end
-	s = s .. '['..table.mapi(self.args, apply):concat','..']'
+	s = s .. '['..concat(table.mapi(self.args, apply), ',')..']'
 	if #self == 1
 	and ast._return:isa(self[1])
 	then
@@ -363,11 +527,11 @@ function ast._function:toLuaFixed_recursive(apply)
 		-- TODO when is this necessary due to mult-ret?
 		-- when is this necessary due to parent wrapping being ternary or single-expr lambda or something?
 		s = s .. '('
-		s = s .. table.mapi(ret.exprs, apply):concat','
+		s = s .. concat(table.mapi(ret.exprs, apply), ',')
 		s = s .. ')'
 	else
 		s = s .. 'do '
-		s = s .. table.mapi(self, apply):concat' '
+		s = s .. concat(table.mapi(self, apply), ' ')
 		s = s ..' end'
 	end
 	return s
