@@ -454,6 +454,7 @@ concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
 			ast = ast,
 			apply = apply,
 			table = table,
+			concat = concat,
 		})
 		-- indexself key is a Lua string so ... lazy I know
 	else
@@ -466,6 +467,7 @@ langfix.optcall(<?=concat(table{func}:append(self.args):mapi(apply), ',')?>)
 			func = func,
 			apply = apply,
 			table = table,
+			concat = concat,
 		})
 	end
 end
@@ -502,6 +504,7 @@ concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
 			apply = apply,
 			ast = ast,
 			table = table,
+			concat = concat,
 		})
 	else
 		return _call.super.serialize(self, apply)
