@@ -521,8 +521,18 @@ if the function is multiple-stmts then we can use []do ... end
 --]]
 function ast._function:toLuaFixed_recursive(apply)
 	local s = ''
-	if self.name then s = apply(self.name)..' = '..s end
-	s = s .. '['..concat(table.mapi(self.args, apply), ',')..']'
+	local args = table(self.args)
+	if self.name then
+		local name
+		if ast._indexself:isa(self.name) then
+			name = ast._index(self.name.expr, self.name.key)
+			args:insert(1, ast._var':')
+		else
+			name = self.name
+		end
+		s = apply(name)..' = '..s
+	end
+	s = s .. '['..concat(table.mapi(args, apply), ',')..']'
 	if #self == 1
 	and ast._return:isa(self[1])
 	then
