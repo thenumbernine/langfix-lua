@@ -48,6 +48,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- A lambda that returns vararg will look like `[...]...`.
 	- A lambda that returns an extra value prepended to a vararg will look like `[...]('x', ...)`.
 	- A lambda that truncates to the first value of a vararg will look like `[...]((...))`.
+	- lambdas using `[]` inside tables can confuse the explicit-key-expression syntax of `t={[k]=v}` versus lambda syntax `t={[k]v}`, so in the case of putting a lambda in a table, best to wrap it with parenthesis.  This is tempting me to go back to `|...|` for my lambda args...
 - Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
 - "safe-navigation operator": `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 	- "safe-navigation-assign operator": `a?.b=c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
