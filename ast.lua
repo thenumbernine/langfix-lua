@@ -522,6 +522,7 @@ if the function is multiple-stmts then we can use []do ... end
 function ast._function:toLuaFixed_recursive(apply)
 	local s = ''
 	local args = table(self.args)
+	local closeplz
 	if self.name then
 		local name
 		if ast._indexself:isa(self.name) then
@@ -531,6 +532,10 @@ function ast._function:toLuaFixed_recursive(apply)
 			name = self.name
 		end
 		s = apply(name)..' = '..s
+	else
+		-- if the parent is a table ctor then shorthand lambdas can break the grammar ... unless they are wrapped with parenthesis ...
+		s = s .. '('
+		closeplz = true
 	end
 	s = s .. '['..concat(table.mapi(args, apply), ',')..']'
 	if #self == 1
@@ -546,6 +551,9 @@ function ast._function:toLuaFixed_recursive(apply)
 		s = s .. 'do '
 		s = s .. concat(table.mapi(self, apply), ' ')
 		s = s ..' end'
+	end
+	if closeplz then
+		s = s .. ')'
 	end
 	return s
 end
