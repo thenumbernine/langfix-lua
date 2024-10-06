@@ -187,6 +187,14 @@ function LuaFixedParser:parse_exp_ternary()
 end
 --]=]
 
+-- parse_exp_shift inserting arshift
+LuaFixedParser.exp_shift_classNameForSymbol = table(
+	LuaFixedParser.exp_shift_classNameForSymbol,
+	{
+		['>>>'] = '_ashr',
+	}
+):setmetatable(nil)
+
 -- lambdas
 function LuaFixedParser:parse_functiondef()
 	local from = self:getloc()
