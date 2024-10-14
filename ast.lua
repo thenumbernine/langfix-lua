@@ -219,7 +219,7 @@ local assignops = table{
 	{'ashrto', '>>>=', not native_bitops and 'bit.arshift(%1, %2)' or nil},
 }:mapi(function(info)
 	local name, op, binopexpr = table.unpack(info)
-	binopexpr = binopexpr or '%1 '..op:sub(1, -2)..' %2'
+	binopexpr = binopexpr or '((%1) '..op:sub(1, -2)..' (%2))'
 	local cl = ast._assign:subclass{type=name, op=op, binopexpr=binopexpr}
 	info[3] = cl
 	ast['_'..name] = cl
