@@ -236,4 +236,12 @@ if int then asserttableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):
 
 --print:o([x]x+1):bind(1)()
 
+-- make sure our inlined code local variables aren't messing with us
+do
+	local t={}
+	t.k=[]2
+	asserttype(t.k, 'function')
+	asserteq(t.k(), 2)
+end
+
 print'done'
