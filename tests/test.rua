@@ -1,27 +1,27 @@
 #!/usr/bin/env rua
 
 -- single-statement lambdas
-asserteq( ([]1)(), 1)
-asserteq( ([x]x+1)(1), 2)
+assert.eq( ([]1)(), 1)
+assert.eq( ([x]x+1)(1), 2)
 
 -- single-statement lambda with multiple-return ... works
-asserteq( ([x](x+1,x+2))(1), 2)
-asserteq( select(2, ([x](x+1,x+2))(1)), 3)
-asserteq( ([x](x+1, x+1))(1), 2)
+assert.eq( ([x](x+1,x+2))(1), 2)
+assert.eq( select(2, ([x](x+1,x+2))(1)), 3)
+assert.eq( ([x](x+1, x+1))(1), 2)
 -- but now it takes two (( )) to truncate ...
-asserteq( select(2, ([...](...))(1,2)), 2 )
-asserteq( select(2, ([...]((...)))(1,2)), nil )
+assert.eq( select(2, ([...](...))(1,2)), 2 )
+assert.eq( select(2, ([...]((...)))(1,2)), nil )
 -- also, with single-expr mult-ret, two successive lambdas passed as args don't work anymore.
 -- the 2nd lambda becomes a 2nd mult-ret of the 1st lambda
-asserteq(2, select('#', 1, 1))
-asserteq(2, select('#', []1, []1))
+assert.eq(2, select('#', 1, 1))
+assert.eq(2, select('#', []1, []1))
 -- so I think I'll disable single-expr mult-ret ...
 -- ... *MAYBE* I'll add it with syntactic sugar, like extra parenthesis,
 --		like [x](x+1,x+2) is a single-expr mult-ret.
 -- 		the irony is that typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
 
 local I = [...]...
-asserteq( ([...]I(I(...)))(1), 1)
+assert.eq( ([...]I(I(...)))(1), 1)
 
 local x = ([...]I(I(...)))(1)	-- works assigning
 I(([...]I(I(...)))(1))			-- works wrapped in forward function
@@ -29,68 +29,68 @@ I(([...]I(I(...)))(1))			-- works wrapped in forward function
 --[...]I(I(...))(1)				-- parse error
 
 -- multiple-statement lamda
-asserteq( ([n] do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
+assert.eq( ([n] do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
 
 -- function metamethods (in ext)
 local g = ([x]x+1) * ([x]x-1)
 -- function g(x) = (x+1)*(x-1)
-asserteq(g(2), (2+1)*(2-1))
-asserteq(g(3), (3+1)*(3-1))
+assert.eq(g(2), (2+1)*(2-1))
+assert.eq(g(3), (3+1)*(3-1))
 -- tempting to make a :cartesian :product :outer or something like that which combines args and multiplies results ...
 
 -- implicit 'self' argument
-asserteq( ([:]self)(3), 3)
-asserteq( ([:, x]self+x)(3, 4), 7)
+assert.eq( ([:]self)(3), 3)
+assert.eq( ([:, x]self+x)(3, 4), 7)
 
-do local x = ([]3)() asserteq(x, 3) end
+do local x = ([]3)() assert.eq(x, 3) end
 
 -- bit operators
-asserteq(2 << 2, 8)
+assert.eq(2 << 2, 8)
 
 -- op-assign
 do
-	local x = 1 x += 2 asserteq(x, 3)
-	local x = {a=3, b=[]4} x.a += x:b() asserteq(x.a, 7)
-	local x = 7 x /= 2 asserteq(x, 3.5)
-	local x = 7 x //= 2 asserteq(x, 3)
+	local x = 1 x += 2 assert.eq(x, 3)
+	local x = {a=3, b=[]4} x.a += x:b() assert.eq(x.a, 7)
+	local x = 7 x /= 2 assert.eq(x, 3.5)
+	local x = 7 x //= 2 assert.eq(x, 3)
 end
---asserteq(x, nil)	-- local-by-default
+--assert.eq(x, nil)	-- local-by-default
 --x = nil				-- ... until I get it working
 
 -- pack op assign
 do
 	local a,b,c = 1,2,3
 	a,b,c += 3,2,1
-	asserteq(a, 4)
-	asserteq(b, 4)
-	asserteq(c, 4)
+	assert.eq(a, 4)
+	assert.eq(b, 4)
+	assert.eq(c, 4)
 end
 
 --[=[ bit operator metamethods ... not supported yet
 local g = ([x]x+1) << ([x]x-1)
 -- g = [x] (x+1)*(x-1)
-asserteq(g(2), (2+1) << (2-1))
-asserteq(g(3), (3+1) << (3-1))
+assert.eq(g(2), (2+1) << (2-1))
+assert.eq(g(3), (3+1) << (3-1))
 --]=]
 
 -- global-scope boxed ctypes
-if int then asserteq(int(7)/int(2), int(3)) end
+if int then assert.eq(int(7)/int(2), int(3)) end
 
 -- integer division TODO has errors
-asserteq(7//2, 3)
+assert.eq(7//2, 3)
 
 -- lambda + function-operator
-asserteq((([x]x+1) * ([x]x-1))(3), 8)
+assert.eq((([x]x+1) * ([x]x-1))(3), 8)
 
 -- function operators
-asserteq(([x,y]x+y):bind(2)(3), 5)
+assert.eq(([x,y]x+y):bind(2)(3), 5)
 
 --[=[ TODO test locals-as-default
 -- but that should be shimming using require(), not load(), so I do need to move its scope to load() as well ...
 do
 	x = 1
 end
-asserteq(x, nil)
+assert.eq(x, nil)
 --]=]
 
 -- [[ safe-navigation operators ...
@@ -98,49 +98,49 @@ do
 	-- read
 
 	local a = nil
-	asserteq(a?.b, nil)
-	asserteq(a?['b'], nil)
-	asserteq(a?.b?.c, nil)
-	asserteq(a?['b']?.c, nil)
-	asserteq(a?.b?['c'], nil)
+	assert.eq(a?.b, nil)
+	assert.eq(a?['b'], nil)
+	assert.eq(a?.b?.c, nil)
+	assert.eq(a?['b']?.c, nil)
+	assert.eq(a?.b?['c'], nil)
 
 	local a = {}
-	asserteq(a?.b?.c, nil)
+	assert.eq(a?.b?.c, nil)
 	a.b = 'foo'
-	asserteq(a?.b, 'foo')
-	asserteq(a?['b'], 'foo')
+	assert.eq(a?.b, 'foo')
+	assert.eq(a?['b'], 'foo')
 	a.b = {}
 	a.b.c = 'bar'
-	asserteq(a?.b?.c, 'bar')
-	asserteq(a?['b']?.c, 'bar')
-	asserteq(a?.b?['c'], 'bar')
+	assert.eq(a?.b?.c, 'bar')
+	assert.eq(a?['b']?.c, 'bar')
+	assert.eq(a?.b?['c'], 'bar')
 end
 --]]
 -- [[ safe-navigation call operators
 do
 	local a = nil
-	asserteq(a?(), nil)			-- optcall
+	assert.eq(a?(), nil)			-- optcall
 
-	asserterror([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	assert.error([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
 	local a = {}
-	asserterror([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	assert.error([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
-	asserteq(a?.b?(), nil)		-- optcall optindex
-	asserteq(a?.b?.c?(), nil)	-- optcall optindex
+	assert.eq(a?.b?(), nil)		-- optcall optindex
+	assert.eq(a?.b?.c?(), nil)	-- optcall optindex
 
-	asserteq(a.b?(), nil)		-- optcall index
+	assert.eq(a.b?(), nil)		-- optcall index
 
-	asserteq(a?.b?:c?(), nil)	-- optcall optindexself absent
+	assert.eq(a?.b?:c?(), nil)	-- optcall optindexself absent
 
-	a.b = [x] asserteq(x, a)
-	asserteq(a?:b(), a)				-- call optindexself present
-	asserteq(a?.b(a), a)			-- call optindex present
-	asserteq(a?.b?(a), a)			-- optcall optindex present
-	asserteq(a?:b?(), a)			-- optcall optindexself present
-	asserteq(a?['b']?(a, a), a)
+	a.b = [x] assert.eq(x, a)
+	assert.eq(a?:b(), a)				-- call optindexself present
+	assert.eq(a?.b(a), a)			-- call optindex present
+	assert.eq(a?.b?(a), a)			-- optcall optindex present
+	assert.eq(a?:b?(), a)			-- optcall optindexself present
+	assert.eq(a?['b']?(a, a), a)
 	local k = 'b'
-	asserteq(a?[k]?(a, a), a)
+	assert.eq(a?[k]?(a, a), a)
 	-- TODO false positive warning, all these ?. and ?[] and ?()'s cannot exist as statements, but only as arguments to functions
 
 	assert(not load'a.b = a.c?')	-- make sure the trailing ? is an error
@@ -149,78 +149,78 @@ end
 -- [[ safe-navigation-assignment
 do
 	local a = {}
-	asserteq(a.b, nil)
-	asserteq(a?.b=2, 2)
-	asserteq(a.b, 2)
+	assert.eq(a.b, nil)
+	assert.eq(a?.b=2, 2)
+	assert.eq(a.b, 2)
 	--optional-write
 	local d = {}
-	asserteq(a.c, nil)
-	asserteq(a?.c=d, d)
-	asserteq(a.c, d)
+	assert.eq(a.c, nil)
+	assert.eq(a?.c=d, d)
+	assert.eq(a.c, d)
 	--optional-read without write using ternary operator
-	asserteq(a?.e?.f ?? d, d)	asserteq(a?.e?.f, nil)
+	assert.eq(a?.e?.f ?? d, d)	assert.eq(a?.e?.f, nil)
 
 	-- optional-write chained:
 	local a = {}
-	asserteq(a?.b={}?.c={}?.d=2, 2)
-	asserteq(a.b.c.d, 2)
+	assert.eq(a?.b={}?.c={}?.d=2, 2)
+	assert.eq(a.b.c.d, 2)
 
 	-- optional-write and call?
 	local a = {}
-	--asserteq(a?.b=([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
-	asserteq((a?.b=([]4))(), 4)	-- this assigns the function to b ... () precedence
-	asserttype(a.b, 'function')
+	--assert.eq(a?.b=([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
+	assert.eq((a?.b=([]4))(), 4)	-- this assigns the function to b ... () precedence
+	assert.type(a.b, 'function')
 	-- and what happens if we proceed a call with a = default value? idk? nothing?
-	assert(not load'asserteq(a.b?()=5, 4)')
-	assert(not load'asserteq(a:b?()=5, 4)')
+	assert(not load'assert.eq(a.b?()=5, 4)')
+	assert(not load'assert.eq(a:b?()=5, 4)')
 end
 --]]
 
 -- [[ ternary also?
 do
-	asserteq(true ? 1 : 2, 1)
-	asserteq(false ? 1 : 2, 2)
-	asserteq(true ? true : 2, true)
-	asserteq(true ? false : 2, false)
-	asserteq(false ? true : 2, 2)
-	asserteq(false ? false : 2, 2)
-	asserteq(1 + 1 ? false : 2, false)
+	assert.eq(true ? 1 : 2, 1)
+	assert.eq(false ? 1 : 2, 2)
+	assert.eq(true ? true : 2, true)
+	assert.eq(true ? false : 2, false)
+	assert.eq(false ? true : 2, 2)
+	assert.eq(false ? false : 2, 2)
+	assert.eq(1 + 1 ? false : 2, false)
 
 	-- ternary has parsing ambiguities with safe-navigation
 	-- I could resolve them maybe if I allowed rewinding tokens
 	-- it gets worse when you consider safe-navigation ?[] and ternary-with-lambdas ?[]
 
 	local a = []nil
-	local tmp = a() ? false : 2 asserteq(tmp, 2)
-	asserteq( a() ? false : 2, 2)
-	asserteq( (a() ? false : 2), 2)
-	asserteq( ((a()) ? false : 2), 2)
+	local tmp = a() ? false : 2 assert.eq(tmp, 2)
+	assert.eq( a() ? false : 2, 2)
+	assert.eq( (a() ? false : 2), 2)
+	assert.eq( ((a()) ? false : 2), 2)
 
 	-- hmm for ternary we always need () wrapping any expr with () in it ...
 	-- probably because a():b() is a valid prefixexp ...
 
-	--asserteq( true ? a() : 2, a() )	-- doesn't work, probably because a():2 could be a self-call
-	asserteq( true ? (a()) : 2, a() )	-- ... extra () fixes it
-	asserteq( true ? 2 : a(), 2 )		-- 3rd arg can end in () no problem
-	--asserteq( true ? 2 : (b):c(), 2 )	-- doesn't work because	the 3rd expression starts in a ( which indicates to the parser it is wrapped in () for multret's sake, but this expression is not ...
-	asserteq( true ? 2 : ((b):c()), 2 )	-- ... extra () fixes it
+	--assert.eq( true ? a() : 2, a() )	-- doesn't work, probably because a():2 could be a self-call
+	assert.eq( true ? (a()) : 2, a() )	-- ... extra () fixes it
+	assert.eq( true ? 2 : a(), 2 )		-- 3rd arg can end in () no problem
+	--assert.eq( true ? 2 : (b):c(), 2 )	-- doesn't work because	the 3rd expression starts in a ( which indicates to the parser it is wrapped in () for multret's sake, but this expression is not ...
+	assert.eq( true ? 2 : ((b):c()), 2 )	-- ... extra () fixes it
 
 	local a = {}
-	asserteq(a.b ? false : 2, 2)
-	asserteq(a?.b ? false : 2, 2)
+	assert.eq(a.b ? false : 2, 2)
+	assert.eq(a?.b ? false : 2, 2)
 
-	local a = {} local x = a.b ? 1 : 2 asserteq(x, 2)
-	local a = {} local x = a.b?.c or 2 asserteq(x, 2)
+	local a = {} local x = a.b ? 1 : 2 assert.eq(x, 2)
+	local a = {} local x = a.b?.c or 2 assert.eq(x, 2)
 
 	-- ternary with optional clauses?
 	-- omit the 2nd to use the 1st's value ... to work like safe-navigation / null-coalescence
 	-- omit the 3rd to use nil ... is there a degenerate use case for this? other than ternary?  maybe I should force a 3rd arg?
-	asserteq(true ? 1 : 2, 1)
-	asserteq(true ?? 2, true)
-	--asserteq(true ? 1, 1)
-	asserteq(false ? 1 : 2, 2)
-	asserteq(false ?? 2, 2)
-	--asserteq(false ? 1, nil)
+	assert.eq(true ? 1 : 2, 1)
+	assert.eq(true ?? 2, true)
+	--assert.eq(true ? 1, 1)
+	assert.eq(false ? 1 : 2, 2)
+	assert.eq(false ?? 2, 2)
+	--assert.eq(false ? 1, nil)
 	assert(load'return false ?? false')
 	assert(not load'return false ??')	-- null-coalescing 2nd arg must be provided
 end
@@ -232,7 +232,7 @@ end
 -- :bind(), :co() function metatable
 -- :resume() thread metatable
 -- int ctype global
-if int then asserttableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
+if int then assert.tableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
 
 --print:o([x]x+1):bind(1)()
 
@@ -240,8 +240,8 @@ if int then asserttableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):
 do
 	local t={}
 	t.k=[]2
-	asserttype(t.k, 'function')
-	asserteq(t.k(), 2)
+	assert.type(t.k, 'function')
+	assert.eq(t.k(), 2)
 end
 
 print'done'
