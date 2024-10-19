@@ -1,4 +1,4 @@
-local assertindex = require 'ext.assert'.index
+local assert = require 'ext.assert'
 local table = require 'ext.table'
 local template = require 'template'
 local LuaParser = require 'parser.lua.parser'
@@ -45,8 +45,8 @@ end
 -- Also when it does work it isn't 100%.  Parse locations are at the previous token location.  from() is always messed up.
 --[=======[
 local class = require 'ext.class'
-local asserteq = require 'ext.assert'.eq
-local asserttype = require 'ext.assert'.type
+local assert.eq = require 'ext.assert'.eq
+local assert.type = require 'ext.assert'.type
 local OutputNode = class()
 local OutputNodeInToString
 function OutputNode:__tostring()
@@ -70,7 +70,7 @@ OutputNodeInToString = true
 	end
 	local function recurse(x)
 		if not OutputNode:isa(x) then
-			asserttype(x, 'string')
+			assert.type(x, 'string')
 			process(x)
 		else
 			if x.left then
@@ -103,7 +103,7 @@ print('was', prevrow, prevcol, 'is', row, col, 'target', from and from.line, fro
 		end
 	end
 	recurse(self)
-asserttype(sofar, 'string')
+assert.type(sofar, 'string')
 print('tostring processed', require 'ext.tolua'(sofar)) --('%q'):format(sofar))
 print(debug.traceback())
 print()
@@ -133,7 +133,7 @@ function Apply:init(x)
 		self.srcnode = x
 	else
 		assert(not x.toLua)
-		asserttype(x, 'string')
+		assert.type(x, 'string')
 		self.str = x
 	end
 end
@@ -150,7 +150,7 @@ for k,cl in pairs(ast) do
 	if LuaAST:isa(cl) then
 -- [[
 		function cl:toLua_recursive(apply)
-			asserteq(apply, asttolua)
+			assert.eq(apply, asttolua)
 			-- get the original function's result - it should be default a string, or if it's touched other sublcassd _recurive()'d resulst then it'll be an OutputNode
 			local result = cl.super.toLua_recursive(self, apply)
 			if type(result) == 'string' then
@@ -285,7 +285,7 @@ if not native_bitops then
 		-- ... unless the input is a (U)LL-number-literal / (u)int64_t-cast-type
 		-- ... in which case, 'rshift' is the Lua-equiv zero-padding, and 'arshift' fills with the lhs-most-bit to preserve sign
 		local key = '_'..info.type
-		local cl = assertindex(ast, key)
+		local cl = assert.index(ast, key)
 		--cl = cl:subclass()	-- TODO fixme
 		ast[key] = cl
 

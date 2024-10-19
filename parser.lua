@@ -1,4 +1,4 @@
-local asserteq = require 'ext.assert'.eq
+local assert = require 'ext.assert'
 local table = require 'ext.table'
 local LuaParser = require 'parser.lua.parser'
 local LuaFixedTokenizer = require 'langfix.tokenizer'
@@ -273,7 +273,7 @@ function LuaFixedParser:parse_functiondef()
 			end
 		end
 
-		asserteq(self.functionStack:remove(), functionType)
+		assert.eq(self.functionStack:remove(), functionType)
 
 		return self:makeFunction(nil, args, table.unpack(block))
 			:setspan{from = from, to = self:getloc()}
