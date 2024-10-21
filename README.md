@@ -60,6 +60,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
 ### TODO
+- Safe-navigation doesn't work as statements, only as expressions in the rhs of assignments.
 - How about octal number support?  0777 == 512 .  Binary too?
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.

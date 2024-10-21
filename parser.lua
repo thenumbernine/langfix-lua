@@ -19,6 +19,9 @@ function LuaFixedParser:init(data, source)
 
 	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
 	LuaFixedParser.super.init(self, data, self.version, source, self.useluajit)
+
+	local shiftIndex, shift = self.parseExprPrecedenceRulesAndClassNames:find(nil, function(level) return level.name == 'shift' end)
+	table.insert(shift.rules, {token='>>>', className='_ashr'})
 end
 
 function LuaFixedParser:buildTokenizer(data)
@@ -146,7 +149,7 @@ end
 
 function LuaFixedParser:parse_exp_ternary()
 	local ast = self.ast
-	local a = self:parse_exp_or()
+	local a = self:parse_expr_precedenceTable(1)
 	if not a then return end
 
 	-- if we get a ( then handle many and expect a )
@@ -160,7 +163,7 @@ function LuaFixedParser:parse_exp_ternary()
 			self:mustbe(')', 'symbol')
 		else
 			--c = self:parse_prefixexp()
-			--c = self:parse_exp_or()	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
+			--c = self:parse_expr_precedenceTable(1)	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
 			c = self:parse_exp_ternary()
 			assert(c, msg)
 			c = table{c}
@@ -186,14 +189,6 @@ function LuaFixedParser:parse_exp_ternary()
 	return a
 end
 --]=]
-
--- parse_exp_shift inserting arshift
-LuaFixedParser.exp_shift_classNameForSymbol = table(
-	LuaFixedParser.exp_shift_classNameForSymbol,
-	{
-		['>>>'] = '_ashr',
-	}
-):setmetatable(nil)
 
 -- lambdas
 function LuaFixedParser:parse_functiondef()

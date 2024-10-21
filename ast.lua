@@ -217,6 +217,7 @@ local assignops = table{
 	{'shlto', '<<=', not native_bitops and 'bit.lshift(%1, %2)' or nil},
 	{'shrto', '>>=', not native_bitops and 'bit.rshift(%1, %2)' or nil},
 	{'ashrto', '>>>=', not native_bitops and 'bit.arshift(%1, %2)' or nil},
+	-- TODO what about and= or= not= ?
 }:mapi(function(info)
 	local name, op, binopexpr = table.unpack(info)
 	binopexpr = binopexpr or '((%1) '..op:sub(1, -2)..' (%2))'
