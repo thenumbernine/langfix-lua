@@ -14,190 +14,31 @@ for _,k in ipairs(table.keys(ast)) do
 	end
 end
 
-local function toLuaFixed(x)
-	if x.toLuaFixed then return x:toLuaFixed() end
-	return x:serialize(toLuaFixed)
-end
-
 -- weakness to this design ...i need to always keep specifying the above toLang() wrapper, or I have to make a seprate member function...
 for k,cl in pairs(ast) do
 	if LuaAST:isa(cl) then
-		function cl:toLuaFixed_recursive(apply)
-			return self:serialize(apply)
+		function cl:toLuaFixed_recursive(consume)
+			return self:serialize(consume)
 		end
 		function cl:toLuaFixed()
-			return self:toLuaFixed_recursive(toLuaFixed)
+			return self:serializeRecursiveMember'toLuaFixed_recursive'
 		end
 	end
 end
-
-
--- need to emit code and also include a way to track current state
--- that means upon first call, here, start a state object that points back to here
--- so that this object (`apply` down below) can query the current serialization progress so far
--- so that I can realign lines of code to be where they originally were
--- in terms of doing that - producing output to match input - i see two strategies: 1) this, and 2) collecting allll tokens incl spaces and comments
--- SOMETHING WEIRD IS GOING ON IN HERE
---  IF I CALL THIS WITHOUT REQUIRE EXT <-> STRING METATABLE CONCAT SETUP AS STRING.CONCAT
---   THEN THIS WORKS CORRECTLY -- ONE TREE PER PARSE
---  BUT IF I HAVE REQUIRE EXT <-> STRING METATABLE CONCAT = STRING.CONCAT WHICH TOSTRINGS()S ALL CONCAT INPUTS TO STRINGS
---   THEN THIS ONLY PARSES ONE LINE AT A TIME
--- Also when it does work it isn't 100%.  Parse locations are at the previous token location.  from() is always messed up.
---[=======[
-local class = require 'ext.class'
-local assert.eq = require 'ext.assert'.eq
-local assert.type = require 'ext.assert'.type
-local OutputNode = class()
-local OutputNodeInToString
-function OutputNode:__tostring()
-assert(not OutputNodeInToString)
-OutputNodeInToString = true
-	local sofar = ''
-	local col = 1
-	local row = 1
-	local function process(x)
-		assert(not OutputNode:isa(x))
-		x = tostring(x)
-		for i=1,#x do
-			if x:byte(i) == ('\n'):byte() then
-				row = row + 1
-				col = 1
-			else
-				col = col + 1
-			end
-		end
-		sofar = sofar .. x
-	end
-	local function recurse(x)
-		if not OutputNode:isa(x) then
-			assert.type(x, 'string')
-			process(x)
-		else
-			if x.left then
-				recurse(x.left)
-			end
-			if x.srcnode then
-				assert(x.srcnode)
-				assert(LuaAST:isa(x.srcnode))
--- [[ TODO this can only work if there's only one single OutputNode for the entire parsed code
-				local span = x.srcnode.span
-				local from = span and span.from
-				local targetRow = from and from.line
-				local targetCol = from and from.col
-local prevrow, prevcol = row, col
-				if targetRow and row < targetRow then
-					process(('\n'):rep(targetRow - row))
-				end
-				if targetCol and col < targetCol then
-					process((' '):rep(targetCol - col))
-				end
-print('was', prevrow, prevcol, 'is', row, col, 'target', from and from.line, from and from.col)
---]]
-			end
-			if x.str then
-				process(x.str)
-			end
-			if x.right then
-				recurse(x.right)
-			end
-		end
-	end
-	recurse(self)
-assert.type(sofar, 'string')
-print('tostring processed', require 'ext.tolua'(sofar)) --('%q'):format(sofar))
-print(debug.traceback())
-print()
-OutputNodeInToString = false
-	return sofar
-end
-local Branch
-function OutputNode.__concat(a,b)
-	assert(OutputNode:isa(a) or type(a)=='string')
-	assert(OutputNode:isa(b) or type(b)=='string')
---print('Apply concat', type(a), type(b), type(a)=='table' and a.s or a, type(b)=='table' and b.s or b)
-	return Branch(a,b)
-end
--- declare this before OutputNode.__concat so it can be used, define this after so that it can get OutputNode's __concat definition
-Branch = OutputNode:subclass()
-function Branch:init(a,b)
-	self.left = a
-	self.right = b
-end
-
-
-local Apply = OutputNode:subclass()
-function Apply:init(x)
---print('Apply:init', type(x), type(x)=='table' and x.str or x)	-- can't tostring yet cuz ... why?
-	if LuaAST:isa(x) then
---print('ASSIGNING A SRCNODE WITH SPAN', require 'ext.tolua'(x.span))
-		self.srcnode = x
-	else
-		assert(not x.toLua)
-		assert.type(x, 'string')
-		self.str = x
-	end
-end
-local function asttolua(x)
-	if not x.toLua then
-		error('asttolua called on non-ast object '..require 'ext.tolua'(x))
-	end
-	local result = x:toLua_recursive(asttolua)
-	assert(OutputNode:isa(result))
-	assert(getmetatable(result).__concat)
-	return result
-end
-for k,cl in pairs(ast) do
-	if LuaAST:isa(cl) then
--- [[
-		function cl:toLua_recursive(apply)
-			assert.eq(apply, asttolua)
-			-- get the original function's result - it should be default a string, or if it's touched other sublcassd _recurive()'d resulst then it'll be an OutputNode
-			local result = cl.super.toLua_recursive(self, apply)
-			if type(result) == 'string' then
-				result = Apply(result)
-				result.srcnode = self
-			end
-			assert(OutputNode:isa(result))
-			-- pass out an outputnode to build more
-			return result
-		end
---]]
-
-		-- this should be one single call per parse()'s serialization ...
-		-- don't call it on ast subtrees (or the col/row recreation counter will go out of sync)
-		function cl:toLua()
-print('calling toLua on', self.type)
-			local result = self:toLua_recursive(asttolua)
-			if type(result) == 'string' then
-				result = Apply(result)
-			end
-			assert(OutputNode:isa(result))
-			return tostring(result)
-		end
-	end
-end
-local function onlynumtostr(x)
-	if type(x) == 'number' then return tostring(x) end
-	return x
-end
-local function concat(t, sep)
-	if #t == 0 then return '' end
-	sep = onlynumtostr(sep)
-	local s = onlynumtostr(t[1])
-	for i=2,#t do
-		if sep then s = s .. sep end
-		s = s .. onlynumtostr(t[i])
-	end
-	return s
-end
---]=======]
--- [=======[ ... else
-local concat = table.concat
---]=======]
-
 
 -- I could insert >>> into the symbols and map it to luajit arshift ...
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
+
+local function consumeforname(name)
+	return function(consume,a,b)
+		consume(name)
+		consume'('
+		consume(a)
+		consume', '
+		consume(b)
+		consume')'
+	end
+end
 
 local assignops = table{
 	{'concatto', '..='},
@@ -205,43 +46,54 @@ local assignops = table{
 	{'subto', '-='},
 	{'multo', '*='},
 	{'divto', '/='},
-	{'idivto', '//=', not native_idiv and 'langfix.idiv(%1, %2)' or nil},
+	{'idivto', '//=', not native_idiv and consumeforname'langfix.idiv' or nil},
 	{'modto', '%='},
 	{'powto', '^='},
-	{'bandto', '&=', not native_bitops and 'bit.band(%1, %2)' or nil},
-	{'borto', '|=', not native_bitops and 'bit.bor(%1, %2)' or nil},
+	{'bandto', '&=', not native_bitops and consumeforname'bit.band' or nil},
+	{'borto', '|=', not native_bitops and consumeforname'bit.bor' or nil},
 	-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
 	-- coincidentally, xor is sometimes denoted as the not-equivalent symbol, because that's basically what it means, but how to distinguish between boolean and bitwise ...
 	-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
-	{'bxorto', '~~=', not native_bitops and 'bit.bxor(%1, %2)' or '%1 ~ %2'},	-- tempting to use ⊕= and just use ⊕ for xor ...
-	{'shlto', '<<=', not native_bitops and 'bit.lshift(%1, %2)' or nil},
-	{'shrto', '>>=', not native_bitops and 'bit.rshift(%1, %2)' or nil},
-	{'ashrto', '>>>=', not native_bitops and 'bit.arshift(%1, %2)' or nil},
+	{'bxorto', '~~=', not native_bitops and consumeforname'bit.bxor' or '%1 ~ %2'},	-- tempting to use ⊕= and just use ⊕ for xor ...
+	{'shlto', '<<=', not native_bitops and consumeforname'bit.lshift' or nil},
+	{'shrto', '>>=', not native_bitops and consumeforname'bit.rshift' or nil},
+	{'ashrto', '>>>=', not native_bitops and consumeforname'bit.arshift' or nil},
 	-- TODO what about and= or= not= ?
 }:mapi(function(info)
 	local name, op, binopexpr = table.unpack(info)
-	binopexpr = binopexpr or '((%1) '..op:sub(1, -2)..' (%2))'
+	binopexpr = binopexpr or function(consume,a,b)
+		consume'(('
+		consume(a)
+		consume(') '..op:sub(1, -2)..' (')
+		consume(b)
+		consume'))'
+	end
 	local cl = ast._assign:subclass{type=name, op=op, binopexpr=binopexpr}
 	info[3] = cl
 	ast['_'..name] = cl
-	function cl:serialize(apply)
-		local vars = table.mapi(self.vars, apply)
-		local exprs = table.mapi(self.exprs, apply)
-		return concat(vars, ',')..' = '
-		..concat(vars:mapi(function(v,i)
-			return '('
-				..binopexpr
-					:gsub('%%%d', function(j)
-						if j == '%1' then return v end
-						if j == '%2' then return exprs[i] end
-					end)
-				..')'
-		end), ',')
+	function cl:serialize(consume)
+		for i,v in ipairs(self.vars) do
+			consume(v)
+			if i < #self.vars then consume',' end
+		end
+		consume' = '
+		for i,v in ipairs(self.vars) do
+			consume'('
+			binopexpr(consume, v, self.exprs[i])
+			consume')'
+			if i < #self.vars then consume',' end
+		end
 	end
-	function cl:toLuaFixed_recursive(apply)
-		return concat(table.mapi(self.vars, apply), ',')
-			..' '..op..' '
-			..concat(table.mapi(self.exprs, apply), ',')
+	function cl:toLuaFixed_recursive(consume)
+		for i,v in ipairs(self.vars) do
+			consume(v)
+			if i < #self.vars then consume',' end
+		end
+		consume(' '..op..' ')
+		for i,v in ipairs(self.exprs) do
+			consume(v)
+			if i < #self.exprs then consume',' end
+		end
 	end
 
 	return cl
@@ -257,11 +109,17 @@ ast._shl = ast._shl:subclass()
 ast._shr = ast._shr:subclass()
 
 if not native_idiv then
-	function ast._idiv:serialize(apply)
-		return 'langfix.idiv('..concat(table.mapi(self, apply), ',')..')'
+	function ast._idiv:serialize(consume)
+		consume'langfix.idiv('
+		consume(self[1])
+		consume','
+		consume(self[2])
+		consume')'
 	end
-	function ast._idiv:toLuaFixed_recursive(apply)
-		return concat(table.mapi(self, apply), ' // ')
+	function ast._idiv:toLuaFixed_recursive(consume)
+		consume(self[1])
+		consume' // '
+		consume(self[2])
 	end
 end
 
@@ -294,60 +152,74 @@ if not native_bitops then
 		cl.toLuaFixed_recursive = cl.serialize
 
 		-- funny how in lua `function a.b.c:d()` works but `function a.b['c']:d()` doesn't ...
-		function cl:serialize(apply)
-			local args = table.mapi(self, apply)
+		function cl:serialize(consume)
 			--[[ ffi.arch bitness, or at least intptr_t's bitness, whatever that is (usu 64-bit for ffi.arch == x64)
 			-- upside: always 64-bit, even when luajit bit.band would be 32-bit for Lua-numbers
 			-- downside: always 64-bit, even when luajit bit.band would be 32-bit for int32_t's
 			args = args:mapi(intptr_t)
 			--]] -- or don't and just use luajit builtin bit lib bitness as is (usu 32-bit regardless of ffi.arch for Lua numbers, or 64-bit for boxed types):
-			return '(bit.'..func..'('..concat(args, ',')..'))'
+			consume('(bit.'..func..'(')
+			for i,arg in ipairs(self) do
+				consume(arg)
+				if i < #self then consume',' end
+			end
+			consume'))'
 		end
 	end
 end
 
-local function commasep(exprs, apply)
-	return concat(table.mapi(exprs, apply), ',')
+local function commasep(exprs, consume)
+	for i,arg in ipairs(exprs) do
+		consume(arg)
+		if i < #exprs then consume',' end
+	end
 end
 
 do
 	local _ternary = ast._op:subclass()
 	_ternary.type = 'ternary'
 	ast._ternary = _ternary
-	function _ternary:serialize(apply)
-		return template([[
-langfix.ternary(<?=apply(self[1])
-?>,<?
-if self[2] then
-?> function() return <?=commasep(self[2], apply)?> end <?
-else
-?> nil <?
-end
-?>,<?
-if self[3] then
-?> function() return <?=commasep(self[3], apply)?> end <?
-else
-?> nil <?
-end
-?>)]],
-		{
-			self = self,
-			apply = apply,
-			commasep = commasep,
-		})
+	function _ternary:serialize(consume)
+		consume'langfix.ternary('
+		consume(self[1])
+		consume','
+		if self[2] then
+			consume' function() return '
+			commasep(self[2], consume)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume','
+		if self[3] then
+			consume' function() return '
+			commasep(self[3], consume)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume')'
 	end
-	function _ternary:toLuaFixed_recursive(apply)
+	function _ternary:toLuaFixed_recursive(consume)
 		local function serializeOneOrMany(exprs)
-			if exprs == nil then return '' end
-			return '('..concat(table.mapi(exprs, apply), ',')..')'
+			if exprs == nil then return end
+			consume'('
+			for i,x in ipairs(exprs) do
+				consume(x)
+				if i < #exprs then consume',' end
+			end
+			consume')'
 		end
 		if self[2] == nil then
-			return apply(self[1])
-				..' ?? '..serializeOneOrMany(self[3])
+			consume(self[1])
+			consume' ?? '
+			serializeOneOrMany(self[3])
 		else
-			return apply(self[1])
-				..' ? '..serializeOneOrMany(self[2])
-				..' : '..serializeOneOrMany(self[3])
+			consume(self[1])
+			consume' ? '
+			serializeOneOrMany(self[2])
+			consume' : '
+			serializeOneOrMany(self[3])
 		end
 	end
 end
@@ -370,30 +242,35 @@ end
 
 ast._optindex = ast._index:subclass()
 ast._optindex.type = 'optindex'
-function ast._optindex:serialize(apply)
-	return template([[
-langfix.optindex(<?=
-apply(self.expr)
-?>,<?=
-apply(self.key)
-?>, <?
-if self.optassign then
-?> function() return <?=apply(self.optassign)?> end <?
-else
-?> nil <?
-end ?>)]],
-	{
-		self = self,
-		apply = apply,
-	})
+function ast._optindex:serialize(consume)
+	consume'langfix.optindex('
+	consume(self.expr)
+	consume','
+	consume(self.key)
+	consume', '
+	if self.optassign then
+		consume' function() return '
+		consume(self.optassign)
+		consume' end '
+	else
+		consume' nil '
+	end
+	consume')'
 end
-function ast._optindex:toLuaFixed_recursive(apply)
-	return apply(self.expr)
-		..'?'
-		..(ast.keyIsName(self.key, self.parser)
-			and '.'..self.key.value
-			or '['..apply(self.key)..']'
-		)..(self.optassign and ' = '..apply(self.optassign) or '')
+function ast._optindex:toLuaFixed_recursive(consume)
+	consume(self.expr)
+	consume'?'
+	if ast.keyIsName(self.key, self.parser) then
+		consume('.'..self.key.value)
+	else
+		consume'['
+		consume(self.key)
+		consume']'
+	end
+	if self.optassign then
+		consume' = '
+		consume(self.optassign) 
+	end
 end
 
 -- ok here's where I start to break things
@@ -401,114 +278,111 @@ end
 -- call(optindexself(t,'k'), v) is going to turn into 't?:k(v)', turns into 'function(t,k, ...) if t==nil then return end return t[k](t, ...) end)(t, 'k', v)
 ast._optindexself = ast._indexself:subclass()
 ast._optindexself.type = 'optindexself'
-function ast._optindexself:serialize(apply)
+function ast._optindexself:serialize(consume)
 	-- this should only ever be placed under a call or optcall, which will handle it themselves
 	error('here with parent '..tostring(self.parent.type))
-	-- indexself key is a Lua string so don't apply()
-	return template([[
-langfix.optindex(<?=
-apply(self.expr)
-?>, <?=
-apply(self.parser:node('_string', self.key))
-?>, <?
-if self.optassign then
-?> function() return <?=apply(self.optassign)?> end <?
-else
-?> nil <?
+	-- indexself key is a Lua string so don't consume()
+	consume'langfix.optindex('
+	consume(self.expr)
+	consume', '
+	consume(self.parser:node('_string', self.key))
+	consume', '
+	if self.optassign then
+		consume' function() return '
+		consume(self.optassign)
+		consume' end '
+	else
+		consume' nil '
+	end
+	consume')'
 end
-?>)]],
-	{
-		self = self,
-		ast = ast,
-		apply = apply,
-	})
-end
-function ast._optindexself:toLuaFixed_recursive(apply)
-	return apply(self.expr)..'?:'..self.key
-		..(self.optassign and ' = '..apply(self.optassign) or '')
+function ast._optindexself:toLuaFixed_recursive(consume)
+	consume(self.expr)
+	consume'?:'
+	consume(self.key)
+	if self.optassign then
+		consume' = '
+		consume(self.optassign)
+	end
 end
 
 -- subclass the original _call, not our new one ...
 ast._optcall = ast._call:subclass()
 ast._optcall.type = 'optcall'
 -- TODO args are evaluated even if short-circuit fails (so it's not a short-ciruit, just an error avoidance)
-function ast._optcall:serialize(apply)
+function ast._optcall:serialize(consume)
 	local func = self.func
 	if ast._optindexself:isa(func) then
 		-- optcall optindexself
-		return template([[
-langfix.optcallself(<?=
-apply(func.expr)
-?>,<?=
-apply(self.parser:node('_string', func.key))
-?>,<?
-if func.optassign then
-?> function() return <?=apply(func.optassign)?> end <?
-else
-?> nil <?
-end ?> <?=
-concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
-?>)]],
-		{
-			self = self,
-			func = func,
-			ast = ast,
-			apply = apply,
-			table = table,
-			concat = concat,
-		})
+		consume'langfix.optcallself('
+		consume(func.expr)
+		consume','
+		consume(self.parser:node('_string', func.key))
+		consume','
+		if func.optassign then
+			consume' function() return '
+			consume(func.optassign)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume' '
+		for i,arg in ipairs(self.args) do
+			consume', '
+			consume(arg)
+		end
+		consume')'
 		-- indexself key is a Lua string so ... lazy I know
 	else
 		-- optcall anything else
 		-- can optassign go here? does it mean anything?
-		return template([[
-langfix.optcall(<?=concat(table{func}:append(self.args):mapi(apply), ',')?>)
-]], 		{
-			self = self,
-			func = func,
-			apply = apply,
-			table = table,
-			concat = concat,
-		})
+		consume'langfix.optcall('
+		consume(func)
+		for i,arg in ipairs(self.args) do
+			consume','
+			consume(arg)
+		end
+		consume')'
 	end
 end
-function ast._optcall:toLuaFixed_recursive(apply)
+function ast._optcall:toLuaFixed_recursive(consume)
 	local func = self.func
-	return apply(self.func)
-		..'?('..concat(table.mapi(self.args, apply), ',')..')'
+	consume(self.func)
+	consume'?('
+	for i,arg in ipairs(self.args) do
+		consume(arg)
+		if i < #self.args then consume',' end
+	end
+	consume')'
 end
 
 -- and for optindexself to work, now I have to add exceptions to call...
 local _call = ast._call:subclass()
 ast._call = _call
 _call.toLuaFixed_recursive = _call.serialize	-- old serialize = langfix grammar
-function _call:serialize(apply)
+function _call:serialize(consume)
 	local func = self.func
 	if ast._optindexself:isa(func) then
-		return template([[
-langfix.optcallself(<?=
-apply(func.expr)
-?>, <?=
-apply(self.parser:node('_string', func.key))
-?>, <?
-if func.optassign then
-?> function() return <?=apply(func.optassign)?> end <?
-else
-?> nil <?
-end
-?> <?=
-concat(table.mapi(self.args, function(arg) return ', '..apply(arg) end))
-?>)]],
-		{
-			self = self,
-			func = func,
-			apply = apply,
-			ast = ast,
-			table = table,
-			concat = concat,
-		})
+		consume'langfix.optcallself('
+		consume(func.expr)
+		consume', '
+		consume(self.parser:node('_string', func.key))
+		consume', '
+		if func.optassign then
+			consume' function() return '
+			consume(func.optassign)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume' '
+		for i,arg in ipairs(self.args) do
+			consume', '
+			consume(arg)
+		end
+		consume')'
 	else
-		return _call.super.serialize(self, apply)
+		return _call.super.serialize(self, consume)
 	end
 end
 
@@ -520,8 +394,7 @@ if it originally returned wrapped in () to truncate args then yeah definitely we
 
 if the function is multiple-stmts then we can use []do ... end
 --]]
-function ast._function:toLuaFixed_recursive(apply)
-	local s = ''
+function ast._function:toLuaFixed_recursive(consume)
 	local args = table(self.args)
 	local closeplz
 	if self.name then
@@ -532,29 +405,41 @@ function ast._function:toLuaFixed_recursive(apply)
 		else
 			name = self.name
 		end
-		s = apply(name)..' = '..s
+		consume(name)
+		consume' = '
 	else
 		-- if the parent is a table ctor then shorthand lambdas can break the grammar ... unless they are wrapped with parenthesis ...
-		s = s .. '('
+		consume'('
 		closeplz = true
 	end
-	s = s .. '['..concat(table.mapi(args, apply), ',')..']'
+	consume'['
+	for i,arg in ipairs(args) do
+		consume(arg)
+		if i < #args then consume',' end
+	end
+	consume']'
 	if #self == 1
 	and ast._return:isa(self[1])
 	then
 		local ret = self[1]
 		-- TODO when is this necessary due to mult-ret?
 		-- when is this necessary due to parent wrapping being ternary or single-expr lambda or something?
-		s = s .. '('
-		s = s .. concat(table.mapi(ret.exprs, apply), ',')
-		s = s .. ')'
+		consume'('
+		for i,expr in ipairs(ret.exprs) do
+			consume(expr)
+			if i < #ret.exprs then consume',' end
+		end
+		consume')'
 	else
-		s = s .. 'do '
-		s = s .. concat(table.mapi(self, apply), ' ')
-		s = s ..' end'
+		consume'do '
+		for i,expr in ipairs(self) do
+			consume(expr)
+			if i < #self then consume' ' end
+		end
+		consume' end'
 	end
 	if closeplz then
-		s = s .. ')'
+		consume')'
 	end
 	return s
 end
