@@ -96,14 +96,9 @@ return function(env)
 		local tree, result
 		local parser = LuaFixedParser()
 		local success, msg = parser:setData(data, source)
-		if not success then
-			if parser.t then
-				msg = parser.t:getpos()..': '..msg
-			end
-			return nil, msg
-		end
+		if not success then return nil, msg end
 		tree = parser.tree
-		result = tree:toLua()
+		result = tree:toLua{maintainSpan=true}
 --DEBUG(langfix):print('\n'..source..'\n'..showcode(result)..'\n')
 		return result
 	end)
