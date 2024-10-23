@@ -33,7 +33,7 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	local ast = self.ast
 	for _,cl in ipairs(ast.assignops) do
 		if self:canbe(cl.op, 'symbol') then
-			return cl(vars, assert(self:parse_explist()))
+			return cl(vars, (assert(self:parse_explist(), {msg='expected expr list'})))
 				:setspan{from = from, to = self:getloc()}
 		end
 	end
@@ -49,7 +49,7 @@ function LuaFixedParser:parse_prefixexp()
 	local from = self:getloc()
 
 	if self:canbe('(', 'symbol') then
-		local exp = assert(self:parse_exp())
+		local exp = assert(self:parse_exp(), {msg='expected expr'})
 		self:mustbe(')', 'symbol')
 		prefixexp = self:node('_par', exp)
 			:setspan{from = from, to = self:getloc()}
@@ -64,7 +64,7 @@ function LuaFixedParser:parse_prefixexp()
 		local opt = self:canbe('?[', 'symbol')
 		if opt or self:canbe('[', 'symbol') then
 			local classname = opt and '_optindex' or '_index'
-			prefixexp = self:node(classname, prefixexp, assert(self:parse_exp()))
+			prefixexp = self:node(classname, prefixexp, (assert(self:parse_exp(), {msg='expected expr'})))
 			self:mustbe(']', 'symbol')
 			prefixexp:setspan{from = from, to = self:getloc()}
 		else
@@ -104,7 +104,7 @@ function LuaFixedParser:parse_prefixexp()
 						callClassName = '_call'
 					end
 
-					assert(args, "function arguments expected")
+					assert(args, {msg="function arguments expected"})
 					prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
 						:setspan{from = from, to = self:getloc()}
 				else
@@ -130,10 +130,10 @@ function LuaFixedParser:parse_prefixexp()
 -- if you just want optional value, use ternary `? :` / null-coalescence `??`
 		if opt and self:canbe('=', 'symbol') then
 			if ast._optcall:isa(prefixexp) then
-				error("safe-navigation-assign only works after indexes, not calls")
+				error{msg="safe-navigation-assign only works after indexes, not calls"}
 			end
 			local exp = self:parse_exp()
-			assert(exp, "safe-navigation-assignment ?. = expected an expression")
+			assert(exp, {msg="safe-navigation-assignment ?. = expected an expression"})
 			prefixexp.optassign = exp
 		end
 --]]
@@ -159,13 +159,13 @@ function LuaFixedParser:parse_exp_ternary()
 		local c
 		if self:canbe('(', 'symbol') then
 			c = self:parse_explist()
-			assert(c, msg)
+			assert(c, {msg=msg})
 			self:mustbe(')', 'symbol')
 		else
 			--c = self:parse_prefixexp()
 			--c = self:parse_expr_precedenceTable(1)	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
 			c = self:parse_exp_ternary()
-			assert(c, msg)
+			assert(c, {msg=msg})
 			c = table{c}
 		end
 		return c
@@ -237,7 +237,7 @@ function LuaFixedParser:parse_functiondef()
 			-- and `[...]1, ...` would just return `1` and that 2nd `...` would belong to the scope outside the lambda.
 			if self:canbe('(', 'symbol') then
 				local explist = self:parse_explist()
-				assert(explist, "expected expression")
+				assert(explist, {msg="expected expression"})
 				block = {self:node('_return', table.unpack(explist))}
 				self:mustbe(')', 'symbol')
 			else
@@ -248,12 +248,12 @@ function LuaFixedParser:parse_functiondef()
 				-- though inside would be more flexible ... [x,y,z]x,y,z returns 3 args ...
 				--[[ will require parentehsis to wrap
 				local exp = self:parse_prefixexp()
-				assert(exp, "expected expression")
+				assert(exp, {msg="expected expression"})
 				block = {self:node('_return', exp)}
 				--]]
 				-- [[ won't require parenthesis to wrap
 				local exp = self:parse_exp()
-				assert(exp, "expected expression")
+				assert(exp, {msg="expected expression"})
 				block = {self:node('_return', exp)}
 				--]]
 				--[[ mult-ret, doesn't require () to wrap the return,
@@ -262,7 +262,7 @@ function LuaFixedParser:parse_functiondef()
 				-- i.e. `[x]x, [x]x` is a single-lambda that returns x and [x]x
 				-- (instead of two separate comma-separated expressions)
 				local explist = self:parse_explist()
-				assert(explist, "expected expression")
+				assert(explist, {msg="expected expression"})
 				block = {self:node('_return', table.unpack(explist))}
 				--]]
 			end

@@ -93,22 +93,18 @@ return function(env)
 	end
 
 	require 'ext.load'(env).xforms:insert(function(data, source)
-		local parser, tree, result
-		assert(xpcall(function()
-			parser = LuaFixedParser()
-			parser:setData(data, source)
-			tree = parser.tree
-			result = tree:toLua()
+		local tree, result
+		local parser = LuaFixedParser()
+		local success, msg = parser:setData(data, source)
+		if not success then
+			if parser.t then
+				msg = parser.t:getpos()..': '..msg
+			end
+			return nil, msg
+		end
+		tree = parser.tree
+		result = tree:toLua()
 --DEBUG(langfix):print('\n'..source..'\n'..showcode(result)..'\n')
-		end, function(err)
-			return '\n'
-				--..(source or ('['..data:sub(1,10)..'...]'))..'\n'		-- ext.load already handles this
-				--..(data and ('data:\n'..showcode(data)..'\n') or '')	-- ext.load already handles this
-	--			..(not tree and parser and parser.t and (' at '..parser.t:getpos()..'\n') or '')	-- parser.base.parser:setData already handles this
-	--			..(result and ('result:\n'..showcode(result)..'\n') or '')
-				..err..'\n'
-				..debug.traceback()
-		end))
 		return result
 	end)
 
