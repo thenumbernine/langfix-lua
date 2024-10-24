@@ -38,8 +38,26 @@ do
 	local i = 1
 	while i <= #arg do
 		local s = arg[i]
+		-- -l
+		if s:sub(1,2) == '-l' then
+			-- -llib
+			if #s > 2 then
+				require(s:sub(3))
+				table.remove(arg, i)
+				i = i - 1
+			else
+			-- -l lib
+				if i == #arg then
+					-- print help
+				else
+					require(arg[i+1])
+					table.remove(arg, i)
+					table.remove(arg, i)
+					i = i - 1
+				end
+			end
 		-- -e
-		if s:sub(1,2) == '-e' then
+		elseif s:sub(1,2) == '-e' then
 			-- -ecode
 			if #s > 2 then
 				assert(load(s:sub(3)))(select(2, ...))
