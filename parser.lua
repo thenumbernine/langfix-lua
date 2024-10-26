@@ -242,7 +242,12 @@ function LuaFixedParser:parse_functiondef()
 		-- see if there's a : arg to hack in a 'self'
 		local args, selffirst
 		if self:canbe(':', 'symbol') then
-			selffirst = true
+			selffirst = 'indexself'
+			if self:canbe(',', 'symbol') then
+				args = self:parse_parlist()
+			end
+		elseif self:canbe('::', 'symbol') then
+			selffirst = 'indexselfscope'
 			if self:canbe(',', 'symbol') then
 				args = self:parse_parlist()
 			end
@@ -311,6 +316,27 @@ function LuaFixedParser:parse_functiondef()
 		end
 
 		assert.eq(self.functionStack:remove(), functionType)
+
+		-- TODO FIXME this will generate index-self-scope Lua code corretly, but it won't allow for regenerating langfix code ...
+		-- how to get around this?  other than a subclassed _function and subclassed makeFunction ...
+		if selffirst == 'indexselfscope' then
+			if setfenv then
+				table.insert(block, 1,
+					self:node('_call',
+						self:node('_var', 'setfenv'),
+						self:node('_number', '1'),
+						self:node('_var', 'self')
+					)
+				)
+			else
+				table.insert(block, 1,
+					self:node('_assign',
+						{self:node('_var', '_ENV')},
+						{self:node('_var', 'self')}
+					)
+				)
+			end
+		end
 
 		return self:makeFunction(nil, args, table.unpack(block))
 			:setspan{from = from, to = self:getloc()}
