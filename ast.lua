@@ -175,6 +175,46 @@ local function commasep(exprs, consume)
 	end
 end
 
+local _indexselfscope = ast._indexself:subclass()
+_indexselfscope.type = 'indexselfscope'
+ast._indexselfscope = _indexselfscope
+function _indexselfscope:serialize(consume)
+	-- TODO this serialization is for producing names
+	-- you also need an extra rule in function-code-generation (for Lua code only, not LangFix code) for inserting the new _ENV=self / setfenv(1,self)
+	consume(self.expr)
+	consume':'
+	consume(self.key)
+end
+function _indexselfscope:toLuaFixed_recursive(consume)
+	-- ... then in LangFix code we spit out :: in the name again
+	consume(self.expr)
+	consume'::'
+	consume(self.key)
+end
+
+-- add support for indexselfscope to function definitions ...
+ast._function = ast._function:subclass()
+function ast._function:serialize(consume)
+	consume'function'
+	if self.name then
+		consume(self.name)
+	end
+	consume'('
+	commasep(self.args, consume)
+	consume')'
+	if ast._indexselfscope:isa(self.name) then
+		if setfenv then
+			consume' setfenv(1, self) '
+		else
+			consume' _ENV=self '
+		end
+	end
+	for i,x in ipairs(self) do
+		consume(x)
+	end
+	consume'end'
+end
+
 do
 	local _ternary = ast._op:subclass()
 	_ternary.type = 'ternary'
@@ -269,7 +309,7 @@ function ast._optindex:toLuaFixed_recursive(consume)
 	end
 	if self.optassign then
 		consume' = '
-		consume(self.optassign) 
+		consume(self.optassign)
 	end
 end
 

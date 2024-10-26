@@ -244,4 +244,26 @@ do
 	assert.eq(t.k(), 2)
 end
 
+-- :: self-scope syntax ...
+do
+	filescope='filescope'
+	local t={member=43}
+	function t::k(assert,arg)
+		assert.eq(member, 43)
+		assert.eq(arg, 42)
+		assert.eq(filescope, nil)
+	end
+	-- mind you, self-scope means no file, so no assert()
+	t:k(assert,42)
+
+	-- if you want file/global scope then you need to set that in the __index function ...
+	local t=setmetatable({member=43},{__index=getfenv and getfenv(1) or _ENV})
+	function t::k(arg)
+		assert.eq(member, 43)
+		assert.eq(arg, 42)
+		assert.eq(filescope, 'filescope')
+	end
+	t:k(42)
+end
+
 print'done'

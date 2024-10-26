@@ -58,6 +58,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 	- So in general most your ternary operators will have their 2nd and 3rd arguments wrapped in `()`.  I can fix this if I change the ternary symbols, since `:` and `?:` is used elsewhere, in prefix-expressions and in safe-navigation.
 - Null-coalescing operator `a ?? b` returns `a` if present, `b` otherwise.  I wanted to make this just a ternary with 2nd argument omitted, but `a?:b` would conflict with the safe-navigation self-call operator `a?:b()`.
 	- Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
+- `function k::v(...)` function definitions for C++-style `self`-scope via `setfenv` or `_ENV`.
 
 ### TODO
 - Safe-navigation doesn't work as statements, only as expressions in the rhs of assignments.

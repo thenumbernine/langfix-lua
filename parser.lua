@@ -41,6 +41,48 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	return LuaFixedParser.super.parse_assign(self, vars, from, ...)
 end
 
+--[[ I thought I could use the superclass function ...
+function LuaParser:parse_funcname()
+	local from = self:getloc()
+	local name = LuaFixedParser.super.parse_funcname(self)
+	if not name then return end
+
+	-- if we already got a ':' then don't check for '::'
+	if not ast._indexself:isa(name) then
+		if self:canbe('::', 'symbol') then
+			name = self:node('_indexselfscope', name, self:mustbe(nil, 'name'))
+				:setspan{from = from, to = self:getloc()}
+		end
+	end
+
+	return name
+end
+--]]
+-- [[
+function LuaFixedParser:parse_funcname()
+	if not self:canbe(nil, 'name') then return end
+	local from = self:getloc()
+	local name = self:node('_var', self.lasttoken)
+		:setspan{from = from, to = self:getloc()}
+	while self:canbe('.', 'symbol') do
+		local sfrom = self.t:getloc()
+		name = self:node('_index',
+			name,
+			self:node('_string', self:mustbe(nil, 'name'))
+				:setspan{from = sfrom, to = self:getloc()}
+		):setspan{from = from, to = self:getloc()}
+	end
+	if self:canbe(':', 'symbol') then
+		name = self:node('_indexself', name, self:mustbe(nil, 'name'))
+			:setspan{from = from, to = self:getloc()}
+	elseif self:canbe('::', 'symbol') then
+		name = self:node('_indexselfscope', name, self:mustbe(nil, 'name'))
+			:setspan{from = from, to = self:getloc()}
+	end
+	return name
+end
+--]]
+
 -- copy of LuaParser:parse_prefixexp()
 -- but with ?'s inserted for optcall, optindex, optindexself
 function LuaFixedParser:parse_prefixexp()
