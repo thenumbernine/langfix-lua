@@ -76,6 +76,9 @@ do
 					i = i - 1
 				end
 			end
+		elseif s:sub(1,2) == '-i' then
+			-- maintain interactive mode even if -e was used
+			usedE = false
 		else
 			-- if it's a flag then handle it
 			-- otherwise stop and this is our filename

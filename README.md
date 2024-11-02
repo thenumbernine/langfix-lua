@@ -98,6 +98,9 @@ Ternary handles multiple-returns just like single-expression lambdas do: wrap it
 
 `k.v=[::,...]` works the same in lambda-shorthand form.
 
+Things to note about self-scope:
+- Once it is set, you no longer have access to any other scope including global scope unless you set proper measures i.e. your object's `__index` points back to `_G`.
+
 # TODO
 
 - Safe-navigation doesn't work as statements, only as expressions in the rhs of assignments.
@@ -124,3 +127,5 @@ Ternary handles multiple-returns just like single-expression lambdas do: wrap it
 	- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in
 - [`lua-local-default`](https://github.com/thenumbernine/lua-local-default):
 	- `luajit -llocal-default`: local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
+- [`leftargs-lua`](https://github.com/thenumbernine/leftargs-lua):
+	- It turns out code reads left-to-right in evaluation order and in instruction order, with less skips back and forth, if you put the call function arguments on the left hand side.
