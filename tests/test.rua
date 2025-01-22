@@ -244,7 +244,20 @@ do
 	assert.eq(t.k(), 2)
 end
 
--- :: self-scope syntax ...
+-- currently the syntax will confuse keys-as-expressions with lambdas in table constructors ...
+do
+	local x = 'k'
+	local t = {
+		[x] = 2,	-- t.k = 2
+
+		--[x] x^2,	-- t[1] = function(x) return x^2 end, ... fails without parentheiss
+		([x] x^2),	-- ... so you have to do this
+	}
+	assert.eq(t.k, 2)
+	assert.eq(t[1](2), 4)
+end
+
+-- :: self-scope syntax ... maybe this is a worthless idea to include as a syntax feature?
 globalscope='globalscope'
 do
 	local t={member=43}

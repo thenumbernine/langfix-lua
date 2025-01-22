@@ -42,6 +42,7 @@ do
 		if s:sub(1,2) == '-l' then
 			-- -llib
 			if #s > 2 then
+				-- TODO do this in the interpreter's _G env?  or should the interpreter just use this's _G?
 				require(s:sub(3))
 				table.remove(arg, i)
 				i = i - 1
@@ -50,6 +51,7 @@ do
 				if i == #arg then
 					-- print help
 				else
+					-- TODO do this in the interpreter's _G env?  or should the interpreter just use this's _G?
 					require(arg[i+1])
 					table.remove(arg, i)
 					table.remove(arg, i)
@@ -60,6 +62,7 @@ do
 		elseif s:sub(1,2) == '-e' then
 			-- -ecode
 			if #s > 2 then
+				-- TODO do this in the interpreter's _G env?  or should the interpreter just use this's _G?
 				assert(load(s:sub(3)))(select(2, ...))
 				usedE = true
 				table.remove(arg, i)
@@ -69,6 +72,7 @@ do
 				if i == #arg then
 					-- print help
 				else
+					-- TODO do this in the interpreter's _G env?  or should the interpreter just use this's _G?
 					assert(load(arg[i+1]))()
 					usedE = true
 					table.remove(arg, i)

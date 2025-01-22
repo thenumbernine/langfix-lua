@@ -344,4 +344,52 @@ function LuaFixedParser:parse_functiondef()
 	return LuaFixedParser.super.parse_functiondef(self)
 end
 
+--[[ the original LuaParser:parse_field function works fine, except that lambdas will get confused with key-expressions unless you wrap them in parentehsis
+-- to get around this ...
+function LuaFixedParser:parse_field()
+	local from = self:getloc()
+	if self:canbe('[', 'symbol') then
+
+		-- TODO to handle both lambdas or expression-keys
+		-- this will have to be either parse_exp or parse_parlist or also can have : or :: shorthands ...
+
+		-- TODO here look for : or :: ...
+		-- if you get it then we're doing a lambda
+		-- otherwise ... look for parse_exp()
+		-- if the expression that comes back is a single var name then we could be doing either lambda or key-exp
+		-- if, after the expression, there's a comma then we must be doing a lambda (and the first expression better be a name / first entry in parse_parlist()
+		-- after the expression/parlist, expect ]
+		-- then if we find an = then it's a key-exp (and assert there was no : :: or parlist)
+		-- and if we didn't find an = then it's a lambda (and assert that if we did parse an expression as the key that it was just a single name)
+
+		local keyexp = assert(self:parse_exp(), {msg='unexpected symbol'})
+		self:mustbe(']', 'symbol')
+
+		if self:canbe('=', 'symbol') then
+			local valexp = self:parse_exp()
+			if not valexp then error{msg="expected expression but found "..tostring(self.t.token)} end
+			return self:node('_assign', {keyexp}, {valexp})
+				:setspan{from = from, to = self:getloc()}
+		else
+			-- not an equals?  maybe it's a lambda
+		end
+	end
+
+	local exp = self:parse_exp()
+	if not exp then return end
+
+	if self.ast._var:isa(exp) and self:canbe('=', 'symbol') then
+		return self:node('_assign',
+			{
+				self:node('_string', exp.name):setspan(exp.span)
+			}, {
+				(assert(self:parse_exp(), {msg='unexpected symbol'}))
+			}
+		):setspan{from = from, to = self:getloc()}
+	else
+		return exp
+	end
+end
+--]]
+
 return LuaFixedParser
