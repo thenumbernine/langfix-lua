@@ -206,7 +206,7 @@ function ast._function:serialize(consume)
 		if setfenv then
 			consume' setfenv(1, self) '
 		else
-			consume' _ENV=self '
+			consume' local _ENV=self '
 		end
 	end
 	for i,x in ipairs(self) do

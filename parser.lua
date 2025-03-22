@@ -330,10 +330,12 @@ function LuaFixedParser:parse_functiondef()
 				)
 			else
 				table.insert(block, 1,
-					self:node('_assign',
-						{self:node('_var', '_ENV')},
-						{self:node('_var', 'self')}
-					)
+					self:node('_local', {
+						self:node('_assign',
+							{self:node('_var', '_ENV')},
+							{self:node('_var', 'self')}
+						)
+					})
 				)
 			end
 		end
