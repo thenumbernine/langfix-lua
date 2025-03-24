@@ -34,17 +34,19 @@ return function(env)
 	env.langfix = langfix
 	langfix.ternary = function(t, cbt, cbf)
 		if t then
-			if cbt then
-				return cbt()
-			else
-				return t
-			end
+			return cbt()
 		else
-			if cbf then
-				return cbf()
-			end
+			return cbf()
 		end
 	end
+	langfix.nilcoalescing = function(t, cb)
+		if t ~= nil then
+			return t
+		else
+			return cb()
+		end
+	end
+
 	langfix.optindex = function(t, k, optassign)
 		if t == nil then
 			return nil

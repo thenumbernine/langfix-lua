@@ -215,53 +215,64 @@ function ast._function:serialize(consume)
 	consume'end'
 end
 
-do
-	local _ternary = ast._op:subclass()
-	_ternary.type = 'ternary'
-	ast._ternary = _ternary
-	function _ternary:serialize(consume)
-		consume'langfix.ternary('
-		consume(self[1])
-		consume','
-		if self[2] then
-			consume' function() return '
-			commasep(self[2], consume)
-			consume' end '
-		else
-			consume' nil '
-		end
-		consume','
-		if self[3] then
-			consume' function() return '
-			commasep(self[3], consume)
-			consume' end '
-		else
-			consume' nil '
+local _ternary = ast._op:subclass()
+_ternary.type = 'ternary'
+ast._ternary = _ternary
+function _ternary:serialize(consume)
+	consume'langfix.ternary('
+	consume(self[1])
+	consume','
+	consume' function() return '
+	commasep(self[2], consume)
+	consume' end '
+	consume','
+	consume' function() return '
+	commasep(self[3], consume)
+	consume' end '
+	consume')'
+end
+function _ternary:toLuaFixed_recursive(consume)
+	local function serializeOneOrMany(exprs)
+		if exprs == nil then return end
+		consume'('
+		for i,x in ipairs(exprs) do
+			consume(x)
+			if i < #exprs then consume',' end
 		end
 		consume')'
 	end
-	function _ternary:toLuaFixed_recursive(consume)
-		local function serializeOneOrMany(exprs)
-			if exprs == nil then return end
-			consume'('
-			for i,x in ipairs(exprs) do
-				consume(x)
-				if i < #exprs then consume',' end
-			end
-			consume')'
+	consume(self[1])
+	consume' ? '
+	serializeOneOrMany(self[2])
+	consume' : '
+	serializeOneOrMany(self[3])
+end
+
+local _nilcoalescing = ast._op:subclass()
+_nilcoalescing.type = 'nilcoalescing'
+ast._nilcoalescing = _nilcoalescing
+function _nilcoalescing:serialize(consume)
+	consume'langfix.nilcoalescing('
+	consume(self[1])
+	consume','
+	consume' function() return '
+	commasep(self[2], consume)
+	consume' end '
+	consume')'
+end
+function _nilcoalescing:toLuaFixed_recursive(consume)
+	local function serializeOneOrMany(exprs)
+		if exprs == nil then return end
+		consume'('
+		for i,x in ipairs(exprs) do
+			consume(x)
+			if i < #exprs then consume',' end
 		end
-		if self[2] == nil then
-			consume(self[1])
-			consume' ?? '
-			serializeOneOrMany(self[3])
-		else
-			consume(self[1])
-			consume' ? '
-			serializeOneOrMany(self[2])
-			consume' : '
-			serializeOneOrMany(self[3])
-		end
+		consume')'
 	end
+	consume(self[1])
+	consume' ?? '
+	serializeOneOrMany(self[2])
 end
 
 -- TODO these lambdas seem nice but don't always parse correctly

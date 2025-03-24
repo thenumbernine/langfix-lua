@@ -214,18 +214,15 @@ function LuaFixedParser:parse_exp_ternary()
 	end
 
 	if self:canbe('?', 'symbol') then
-		local b = parseOneOrMany"expected a ? b : c or a ?? c"
-
-		-- should I allow the ternary to not provide an 'else', and it default to nil?
+		local b = parseOneOrMany"expected a ? b : c"
 		self:mustbe(':', 'symbol')
-		local c = parseOneOrMany"expected a ? b : c or a ?? c"
+		local c = parseOneOrMany"expected a ? b : c"
 
 		a = self:node('_ternary', a, b, c)
 			:setspan{from = a.span.from, to = self:getloc()}
 	elseif self:canbe('??', 'symbol') then
-		local b
-		local c = parseOneOrMany"expected a ?? c"
-		a = self:node('_ternary', a, b, c)
+		local b = parseOneOrMany"expected a ?? b"
+		a = self:node('_nilcoalescing', a, b)
 			:setspan{from = a.span.from, to = self:getloc()}
 	end
 	return a

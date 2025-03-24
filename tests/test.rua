@@ -216,13 +216,16 @@ do
 	-- omit the 2nd to use the 1st's value ... to work like safe-navigation / null-coalescence
 	-- omit the 3rd to use nil ... is there a degenerate use case for this? other than ternary?  maybe I should force a 3rd arg?
 	assert.eq(true ? 1 : 2, 1)
-	assert.eq(true ?? 2, true)
 	--assert.eq(true ? 1, 1)
 	assert.eq(false ? 1 : 2, 2)
-	assert.eq(false ?? 2, 2)
 	--assert.eq(false ? 1, nil)
+
+	-- nil-coalescing
+	assert.eq(true ?? 2, true)
+	assert.eq(false ?? 2, false)
+	assert.eq(nil ?? 2, 2)
 	assert(load'return false ?? false')
-	assert(not load'return false ??')	-- null-coalescing 2nd arg must be provided
+	assert(not load'return false ??')	-- nil-coalescing 2nd arg must be provided
 end
 --]]
 

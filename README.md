@@ -78,6 +78,10 @@ Notice that lambdas using `[]` inside tables can confuse the explicit-key-expres
 
 "safe-navigation-assign operator": `a?.b=c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
 
+## Null-Coalescing Operator:
+
+`a ?? b` returns `a` if it is not nil, `b` otherwise.
+
 ## Ternary operator
 
 `a ? b : c` works as expected with false `b` values, unlike the equivalent expression `a and b or c`.
@@ -87,8 +91,6 @@ Ternary with 2nd args ending in a call `()` will need to be wrapped in `()`, due
 Ternary with either args beginning in a `(` ... if it is not a wrapping `()` ... then you will need an extra wrapping `()`, due to the ternary-return-multiple-values requiring (and looking for) extra wrapping `()`'s.  If I removed mult-ret from ternary then I could avoid this.
 
 So in general most your ternary operators will have their 2nd and 3rd arguments wrapped in `()`.  I can fix this if I change the ternary symbols, since `:` and `?:` is used elsewhere, in prefix-expressions and in safe-navigation.
-
-Null-coalescing operator `a ?? b` returns `a` if present, `b` otherwise.  I wanted to make this just a ternary with 2nd argument omitted, but `a?:b` would conflict with the safe-navigation self-call operator `a?:b()`.
 
 Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
