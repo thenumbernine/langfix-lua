@@ -45,7 +45,7 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 
 ## Assign-to operators
 
-`..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`.
+`..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`, `??=`.
 
 Works with vararg assignment too: `a,b,c += 1,2,3`.
 
@@ -81,6 +81,8 @@ Notice that lambdas using `[]` inside tables can confuse the explicit-key-expres
 ## Null-Coalescing Operator:
 
 `a ?? b` returns `a` if it is not nil, `b` otherwise.
+
+`a ??= b` assigns `a` to `b` if `b` is not nil.
 
 ## Ternary operator
 

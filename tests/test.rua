@@ -221,11 +221,33 @@ do
 	--assert.eq(false ? 1, nil)
 
 	-- nil-coalescing
+
 	assert.eq(true ?? 2, true)
 	assert.eq(false ?? 2, false)
 	assert.eq(nil ?? 2, 2)
+
+	local a = true ?? 2
+	assert.eq(a, true)
+	local a = false ?? 2
+	assert.eq(a, false)
+	local a = nil ?? 2
+	assert.eq(a, 2)
+
 	assert(load'return false ?? false')
 	assert(not load'return false ??')	-- nil-coalescing 2nd arg must be provided
+
+	-- nil-coalescing-assignment
+	local a = true
+	a ??= 2
+	assert.eq(a, true)
+
+	local a = false
+	a ??= 2
+	assert.eq(a, false)
+
+	local a = nil
+	a ??= 2
+	assert.eq(a, 2)
 end
 --]]
 

@@ -59,6 +59,16 @@ local assignops = table{
 	{'shrto', '>>=', not native_bitops and consumeforname'bit.rshift' or nil},
 	{'ashrto', '>>>=', not native_bitops and consumeforname'bit.arshift' or nil},
 	-- TODO what about and= or= not= ?
+	{'nilcoalescingto', '??=', function(consume,a,b)
+		-- TODO this matches _nilcoalescing below
+		consume'langfix.nilcoalescing('
+		consume(a)
+		consume','
+		consume' function() return '
+		consume(b)
+		consume' end '
+		consume')'
+	end},
 }:mapi(function(info)
 	local name, op, binopexpr = table.unpack(info)
 	binopexpr = binopexpr or function(consume,a,b)
