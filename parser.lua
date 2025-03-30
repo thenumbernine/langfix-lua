@@ -265,7 +265,7 @@ function LuaFixedParser:parse_functiondef()
 		local block
 		if self:canbe('do', 'keyword') then
 			block = self:parse_block(functionType)
-			self:mustbe('end', 'keyword')
+			self:mustbe('end', 'keyword', 'do', from)
 		else
 			-- TODO will I run into blockStack issues here, since I'm not pushing/popping it?
 
