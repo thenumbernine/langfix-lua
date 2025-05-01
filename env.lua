@@ -101,7 +101,7 @@ return function(env)
 		if not success then return nil, msg end
 		tree = parser.tree
 		result = tree:toLua{maintainSpan=true}
---DEBUG(langfix):print('\n'..source..'\n'..showcode(result)..'\n')
+--DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
 		return result
 	end)
 
