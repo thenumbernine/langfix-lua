@@ -104,15 +104,23 @@ function LuaFixedParser:parse_prefixexp()
 
 	while true do
 		local opt = self:canbe('?[', 'symbol')
+			or self:canbe('![', 'symbol')
 		if opt or self:canbe('[', 'symbol') then
-			local classname = opt and '_optindex' or '_index'
+			local classname =
+				opt == '?[' and '_optindex'
+				or opt == '![' and '_assertindex'
+				or '_index'
 			prefixexp = self:node(classname, prefixexp, (assert(self:parse_exp(), {msg='expected expr'})))
 			self:mustbe(']', 'symbol')
 			prefixexp:setspan{from = from, to = self:getloc()}
 		else
 			opt = self:canbe('?.', 'symbol')
+				or self:canbe('!.', 'symbol')
 			if opt or self:canbe('.', 'symbol') then
-				local classname = opt and '_optindex' or '_index'
+				local classname =
+					opt == '?.' and '_optindex'
+					or opt == '!.' and '_assertindex'
+					or '_index'
 				local sfrom = self:getloc()
 				prefixexp = self:node(
 					classname,
@@ -123,8 +131,12 @@ function LuaFixedParser:parse_prefixexp()
 				:setspan{from = from, to = self:getloc()}
 			else
 				opt = self:canbe('?:', 'symbol')
+					or self:canbe('!:', 'symbol')
 				if opt or self:canbe(':', 'symbol') then
-					local classname = opt and '_optindexself' or '_indexself'
+					local classname =
+						opt == '?:' and '_optindexself'
+						or opt == '!:' and '_assertindexself'
+						or '_indexself'
 					prefixexp = self:node(
 						classname,
 						prefixexp,
@@ -141,6 +153,10 @@ function LuaFixedParser:parse_prefixexp()
 						args = self:parse_explist() or {}
 						self:mustbe(')', 'symbol')
 						callClassName = '_optcall'
+					elseif self:canbe('!(', 'symbol') then
+						args = self:parse_explist() or {}
+						self:mustbe(')', 'symbol')
+						callClassName = '_assertcall'
 					else
 						args = self:parse_args()
 						callClassName = '_call'
@@ -156,6 +172,11 @@ function LuaFixedParser:parse_prefixexp()
 						args = self:parse_explist() or {}
 						self:mustbe(')', 'symbol')
 						callClassName = '_optcall'
+					elseif self:canbe('!(', 'symbol') then
+						-- no implicit () with string or table when using safe-navigation
+						args = self:parse_explist() or {}
+						self:mustbe(')', 'symbol')
+						callClassName = '_assertcall'
 					else
 						args = self:parse_args()
 						if not args then break end
@@ -170,13 +191,26 @@ function LuaFixedParser:parse_prefixexp()
 
 -- [[ safe-navigation suffix `=` for optional-assignment to the key if it doesn't exist
 -- if you just want optional value, use ternary `? :` / null-coalescence `??`
-		if opt and self:canbe('=', 'symbol') then
-			if ast._optcall:isa(prefixexp) then
-				error{msg="safe-navigation-assign only works after indexes, not calls"}
+		if opt
+		and self:canbe('=', 'symbol')
+		then
+			if opt:find'^%?' then	-- if it starts with ?, i.e. its an optional-index node
+				if ast._optcall:isa(prefixexp) then
+					error{msg="safe-navigation-assign only works after indexes, not calls"}
+				end
+				local exp = self:parse_exp()
+				assert(exp, {msg="safe-navigation-assignment ?. = expected an expression"})
+				prefixexp.optassign = exp
+			elseif opt:find'^!' then
+				if ast._assertcall:isa(prefixexp) then
+					error{msg="non-nil-assert-assign only works after indexes, not calls"}
+				end
+				local exp = self:parse_exp()
+				assert(exp, {msg="non-nil-assert-assignment !. = expected an expression"})
+				prefixexp.assertassign = exp
+			else
+				error'FIXME'
 			end
-			local exp = self:parse_exp()
-			assert(exp, {msg="safe-navigation-assignment ?. = expected an expression"})
-			prefixexp.optassign = exp
 		end
 --]]
 	end
@@ -191,8 +225,10 @@ end
 
 function LuaFixedParser:parse_exp_ternary()
 	local ast = self.ast
+	local from = self:getloc()
 	local a = self:parse_expr_precedenceTable(1)
 	if not a then return end
+	a:setspan{from = from, to = self:getloc()}
 
 	-- if we get a ( then handle many and expect a )
 	-- if we don't then just expect one

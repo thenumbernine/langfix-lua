@@ -28,6 +28,12 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	self.symbols:insert'?'	-- ternary
 
 	self.symbols:insert'??'	-- null-coalescence
+
+	-- non-nil assertion
+	self.symbols:insert'!.'
+	self.symbols:insert'!['
+	self.symbols:insert'!:'
+	self.symbols:insert'!('
 end
 
 return LuaFixedTokenizer 

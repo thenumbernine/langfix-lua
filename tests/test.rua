@@ -328,4 +328,18 @@ do
 	t:k(42)
 end
 
+-- non-nil-assert operators
+do
+	local t = {k=1}
+	assert.eq(t!.k, 1)
+	assert(
+		assert.error(function() print(t!.k2) end)
+		:find(string.patescape'table index k2 is nil')
+	)
+	assert(
+		assert.error(function() t!:notthere() end)
+		:find(string.patescape'table index notthere is nil')
+	)
+end
+
 print'done'

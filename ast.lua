@@ -342,20 +342,6 @@ ast._optindexself.type = 'optindexself'
 function ast._optindexself:serialize(consume)
 	-- this should only ever be placed under a call or optcall, which will handle it themselves
 	error('here with parent '..tostring(self.parent.type))
-	-- indexself key is a Lua string so don't consume()
-	consume'langfix.optindex('
-	consume(self.expr)
-	consume', '
-	consume(self.parser:node('_string', self.key))
-	consume', '
-	if self.optassign then
-		consume' function() return '
-		consume(self.optassign)
-		consume' end '
-	else
-		consume' nil '
-	end
-	consume')'
 end
 function ast._optindexself:toLuaFixed_recursive(consume)
 	consume(self.expr)
@@ -417,6 +403,101 @@ function ast._optcall:toLuaFixed_recursive(consume)
 	consume')'
 end
 
+ast._assertindex = ast._index:subclass()
+ast._assertindex.type = 'assertindex'
+function ast._assertindex:serialize(consume)
+	consume'langfix.assertindex('
+	consume(self.expr)
+	consume','
+	consume(self.key)
+	consume', '
+	if self.assertassign then
+		consume' function() return '
+		consume(self.assertassign)
+		consume' end '
+	else
+		consume' nil '
+	end
+	consume')'
+end
+function ast._assertindex:toLuaFixed_recursive(consume)
+	consume(self.expr)
+	consume'!'
+	if ast.keyIsName(self.key, self.parser) then
+		consume('.'..self.key.value)
+	else
+		consume'['
+		consume(self.key)
+		consume']'
+	end
+	if self.assertassign then
+		consume' = '
+		consume(self.assertassign)
+	end
+end
+
+ast._assertindexself = ast._indexself:subclass()
+ast._assertindexself.type = 'assertindexself'
+function ast._assertindexself:serialize(consume)
+	-- this should only ever be placed under a call or assertcall, which will handle it themselves
+	error('here with parent '..tostring(self.parent.type))
+end
+function ast._assertindexself:toLuaFixed_recursive(consume)
+	consume(self.expr)
+	consume'!:'
+	consume(self.key)
+	if self.assertassign then
+		consume' = '
+		consume(self.assertassign)
+	end
+end
+
+ast._assertcall = ast._call:subclass()
+ast._assertcall.type = 'assertcall'
+function ast._assertcall:serialize(consume)
+	local func = self.func
+	if ast._assertindexself:isa(func) then
+		-- assertcall assertindexself
+		consume'langfix.assertcallself('
+		consume(func.expr)
+		consume','
+		consume(self.parser:node('_string', func.key))
+		consume','
+		if func.assertassign then
+			consume' function() return '
+			consume(func.assertassign)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume' '
+		for i,arg in ipairs(self.args) do
+			consume', '
+			consume(arg)
+		end
+		consume')'
+	else
+		consume'langfix.assertcall('
+		consume(func)
+		for i,arg in ipairs(self.args) do
+			consume','
+			consume(arg)
+		end
+		consume')'
+	end
+end
+function ast._assertcall:toLuaFixed_recursive(consume)
+	local func = self.func
+	consume(self.func)
+	consume'!('
+	for i,arg in ipairs(self.args) do
+		consume(arg)
+		if i < #self.args then consume',' end
+	end
+	consume')'
+end
+
+
 -- and for optindexself to work, now I have to add exceptions to call...
 local _call = ast._call:subclass()
 ast._call = _call
@@ -432,6 +513,25 @@ function _call:serialize(consume)
 		if func.optassign then
 			consume' function() return '
 			consume(func.optassign)
+			consume' end '
+		else
+			consume' nil '
+		end
+		consume' '
+		for i,arg in ipairs(self.args) do
+			consume', '
+			consume(arg)
+		end
+		consume')'
+	elseif ast._assertindexself:isa(func) then
+		consume'langfix.assertcallself('
+		consume(func.expr)
+		consume', '
+		consume(self.parser:node('_string', func.key))
+		consume', '
+		if func.assertassign then
+			consume' function() return '
+			consume(func.assertassign)
 			consume' end '
 		else
 			consume' nil '

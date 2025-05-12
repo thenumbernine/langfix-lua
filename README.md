@@ -72,13 +72,17 @@ Ex: A lambda that truncates to the first value of a vararg will look like `[...]
 
 Notice that lambdas using `[]` inside tables can confuse the explicit-key-expression syntax of `t={[k]=v}` versus lambda syntax `t={[k]v}`, so in the case of putting a lambda in a table, best to wrap it with parenthesis.  This is tempting me to go back to `|...|` for my lambda argument syntax...
 
-## Safe-Navigation Operator
+## Safe-Navigation Operator:
 
 `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
 "safe-navigation-assign operator": `a?.b=c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
 
-## Null-Coalescing Operator:
+## Non-Nil Assertion Operator:
+
+`a!.b`, `a!['b']`, `a!()`, `a!.b()`, `a!:b()`, `a.b!()`, `a!.b?()`, `a:b!()`, `a!:b!()` etc ... to error when an indexed field is `nil`.
+
+## Nil-Coalescing Operator:
 
 `a ?? b` returns `a` if it is not nil, `b` otherwise.
 

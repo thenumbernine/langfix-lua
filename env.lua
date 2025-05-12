@@ -68,6 +68,38 @@ return function(env)
 		return langfix.optcall(langfix.optindex(t, k, optassign), t, ...)
 	end
 
+	-- t!.k ...
+	-- if t is nil then do we error? yes?
+	-- if k is nil then we error.
+	-- how about if we're assigning ...
+	-- what does `t!.k = v` even mean?
+	-- that we want to error if k is nil, but we still want to overwrite it?
+	-- who would ever want to do that?
+	-- but honestly, same with `t?.k = v` ... optassign is just as bad ... just use `??=` and be done with it.
+	langfix.assertindex = function(t, k, assertassign)
+		if t == nil then
+			error("table is nil")
+		end
+		local v = t[k]
+		if v == nil then
+			error("table index "..tostring(k).." is nil")
+		end
+		if assertassign then
+			v = assertassign()
+			t[k] = v
+		end
+		return v
+	end
+	langfix.assertcall = function(v, ...)
+		if v == nil then
+			error("function is nil")
+		end
+		return v(...)
+	end
+	langfix.assertcallself = function(t, k, assertassign, ...)
+		return langfix.assertcall(langfix.assertindex(t, k, assertassign), t, ...)
+	end
+
 	--local ztable = require '0-based'
 
 	-- notice ffi doesn't load in vanilla lua, so for vanilla lua < 5.3 this will all break
