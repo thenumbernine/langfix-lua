@@ -98,8 +98,10 @@ end
 --print('fn', fn)
 if not fn then
 	if not usedE then
-		-- interpretive mode here
-		require 'interpreter'(_G)
+		-- interpreter mode here
+		local interpreter = require 'interpreter'
+		interpreter.title = _VERSION..'(+langfix) interpeter'
+		interpreter(_G)
 	end
 elseif not path(fn):exists() then
 	arg[0] = fn
