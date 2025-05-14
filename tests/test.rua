@@ -342,4 +342,34 @@ do
 	)
 end
 
+do
+	-- currently single-expression-multiple-return requires an extra set of parenthesis to wrap, i.e. [x](1,2,3)
+	-- but to not confuse with the (...) truncate operator, then the truncate operator takes *two* parenthesis [x]((f()))
+	-- so TODO
+	-- i'm thinking
+	-- move the mult-ret pars to *outside* the lambda: ([x]1,2,3)
+	-- then truncate can stay the same: [x](f())
+	-- and then multret can double as the same mechanism for distinguishing ambiguity of key/value initialization of tables:
+	-- t{[k] = v} vs t{([k]k^2)}
+
+	local func = [a, b, c, d, e] do
+		print('func', a, b, c, d, e)
+		print('...vs c', c())
+	end
+	func(1, 2, [x]3, 4, 5)		-- c returns 3 .. TODO c should return 3,4,5
+	func(1, 2, ([x]3), 4, 5)	-- c returns 3
+
+	-- current syntax requires wrapper around this for multret ... maybe i'll move that to outside-lambda?
+	--func(1, 2, ([x]3, 4, 5))	-- TODO this should be 'c' returns 3,4,5
+
+	func(1, 2, ([x](3, 4, 5)))	-- c returns 3,4,5 TODO this should be 'c' returns 3 .. via (a,b,c)=>a param-pack-truncation
+
+	-- and here's param-pack-truncation-of-single-expr-lambdas currently ... with (( ))
+	-- ... oh wait it doesn't compile.
+	--func(1, 2, [x]((3, 4, 5)))
+	-- once you do (( )) param-pack-truncation, you can't use commas ... is that normal?
+	--local a, b, c = (1,2,3)
+	-- in fact it is normal, in vanilla Lua, this doesn't compile.
+end
+
 print'done'
