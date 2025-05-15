@@ -15,10 +15,10 @@ assert.eq( select(2, ([...]((...)))(1,2)), nil )
 -- the 2nd lambda becomes a 2nd mult-ret of the 1st lambda
 assert.eq(2, select('#', 1, 1))
 assert.eq(2, select('#', []1, []1))
--- so I think I'll disable single-expr mult-ret ...
--- ... *MAYBE* I'll add it with syntactic sugar, like extra parenthesis,
+-- I went and enabled single-expr-mult-ret with syntactic sugar of extra parenthesis
 --		like [x](x+1,x+2) is a single-expr mult-ret.
--- 		the irony is that typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
+-- but typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
+-- so now single-expr-lambdas require two parenthesis to truncate mult-ret functions
 
 local I = [...]...
 assert.eq( ([...]I(I(...)))(1), 1)
@@ -340,6 +340,58 @@ do
 		assert.error(function() t!:notthere() end)
 		:find(string.patescape'table index notthere is nil')
 	)
+end
+
+-- I am not fully satisfied with lambda syntax
+-- one being: the arguments. [x] x^2 ... vs ... |x| x^2 ... vs ... <x> x^2 ... vs ... (x) => x^2
+-- single-expression-multiple-return lambdas ...
+do
+	-- [[ how it is:
+	-- single-expr-lambdas in expressions only take the first expression as a single-return
+	local f = [a,b,c,d,e]do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
+	f(1, 2, [x]3, 4, 5)
+	-- if you want a single-expr lambda to multiple-return then you have to wrap the return expressions in ( )
+	local f = [a,b,c,d,e]do
+		assert.tableieq({a,b, d, e}, {1,2, nil, nil})
+		assert.tableieq({c()}, {3,4,5})
+	end
+	f(1, 2, [x](3, 4, 5))
+	-- and if you want to invoke function argument truncation ... which is typically ( ) ... welp one is already for multret so that's two (( ))'s
+	local g = [](3, 4, 5)
+	local f = [a,b,c,d,e]do
+		assert.tableieq({a,b, d, e}, {1,2,4,5})
+		assert.tableieq({c()}, {3,4,5})
+	end
+	f(1, 2, [x](g()), 4, 5)
+	local f = [a,b,c,d,e]do
+		assert.tableieq({a,b, d, e}, {1,2, 4, 5})
+		assert.tableieq({c()}, {3,nil,nil})
+	end
+	f(1, 2, [x]((g())), 4, 5)
+	-- notice I didn't truncate an expr list inline, i.e. I didn't write ((3,4,5)), because this is invalid Lua.
+	--]]
+
+	--[[ how maybe it should be ...
+	-- single-expr-lambdas in exprs capture multiple-exprs by default.  they take precedence over expr-lists.
+	-- this could be ambiguous to read honestly, I'm 50/50 on this.
+	local f = [a,b,c,d,e]do
+		assert.tableieq({a,b,d,e}, {1,2,nil,nil})
+		assert.tableieq({c()}, {3, 4, 5})
+	end
+	f(1, 2, [x]3, 4, 5)
+	-- ... but if you want to stop reading args, wrap it in ( )
+	-- honestly it looks a bit more ugly than wrapping multret in ( )
+	-- but this does doulbe as the same way to prevent table key-exprs from being confused as lambdas ...
+	-- ... but that could be fixed by changing our lambda symbol from [x] to something else like |x| or <x>
+	local f = [a,b,c,d,e]do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
+	f(1, 2, ([x]3), 4, 5)
+	-- and now multret-truncation is back to just being single parenthesis around a single expression:
+	local f = [a,b,c,d,e]do
+		assert.tableieq({a,b, d, e}, {1,2, 4, 5})
+		assert.tableieq({c()}, {3,nil,nil})
+	end
+	f(1, 2, [x](g()), 4, 5)
+	--]]
 end
 
 print'done'
