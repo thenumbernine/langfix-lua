@@ -1,0 +1,20 @@
+name = "langfix"
+files = {
+	["README.md"] = "langfix/README.md",
+	["ast.lua"] = "langfix/ast.lua",
+	["env.lua"] = "langfix/env.lua",
+	["langfix.lua"] = "langfix/langfix.lua",
+	["parser.lua"] = "langfix/parser.lua",
+	["run.lua"] = "langfix/run.lua",
+	["run.sh"] = "langfix/run.sh",
+	["tests/parse.lua"] = "langfix/tests/parse.lua",
+	["tests/test.rua"] = "langfix/tests/test.rua",
+	["tokenizer.lua"] = "langfix/tokenizer.lua",
+}
+deps = {
+	"bit",
+	"ext",
+	"interpreter",
+	"parser",
+	"template",
+}
