@@ -126,7 +126,8 @@ return function(env)
 		end
 	end
 
-	require 'ext.load'(env).xforms:insert(function(data, source)
+	langfix.loadstate = require 'ext.load'(env)
+	langfix.loadstate.xforms:insert(function(data, source)
 		local tree, result
 		local parser = LuaFixedParser()
 		local success, msg = parser:setData(data, source)
