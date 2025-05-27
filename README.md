@@ -53,24 +53,22 @@ Assign-to-xor's symbol `~=` was already taken as not-equals, so I switched the a
 
 ## Shorthand Lambdas
 
-Lambdas as multiple-statements: `[x,y] do return x+y end`.
+Lambdas as multiple-statements: `|x,y| do return x+y end`.
 
-Lambdas as single-expressions can omit the `do return end`, i.e.: `[x,y] x+y`.
+Lambdas as single-expressions can omit the `do return end`, i.e.: `|x,y| x+y`.
 
-Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `[x,y](x+y,x-y)`.
+Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `|x,y|(x+y,x-y)`.
 This means the Lua truncate-multiple-arguments operation of wrapping with extra `()` will take a second set of parenthesis.
 
-Lambdas with a first argument of `:` is replaced with `self`: `[:]self` is equivalent to `[self]self`.
+Lambdas with a first argument of `:` is replaced with `self`: `|:|self` is equivalent to `|self|self`.
 
 Lambdas with a first argument of `::` is replaced with `self` and the function scope environment is set to `self`, akin to `_ENV=self` or `setfenv(1,self)`.
 
-Ex: A lambda that returns vararg will look like `[...]...`.
+Ex: A lambda that returns vararg will look like `|...|...`.
 
-Ex: A lambda that returns an extra value prepended to a vararg will look like `[...]('x', ...)`.
+Ex: A lambda that returns an extra value prepended to a vararg will look like `|...|('x', ...)`.
 
-Ex: A lambda that truncates to the first value of a vararg will look like `[...]((...))`.
-
-Notice that lambdas using `[]` inside tables can confuse the explicit-key-expression syntax of `t={[k]=v}` versus lambda syntax `t={[k]v}`, so in the case of putting a lambda in a table, best to wrap it with parenthesis.  This is tempting me to go back to `|...|` for my lambda argument syntax...
+Ex: A lambda that truncates to the first value of a vararg will look like `|...|((...))`.
 
 ## Safe-Navigation Operator:
 
@@ -104,7 +102,7 @@ Ternary handles multiple-returns just like single-expression lambdas do: wrap it
 
 `function k::v(...)` function definitions for C++-style `self`-scope via `setfenv` or `_ENV`.
 
-`k.v=[::,...]` works the same in lambda-shorthand form.
+`k.v=|::,...|` works the same in lambda-shorthand form.
 
 Things to note about self-scope:
 - Once it is set, you no longer have access to any other scope including global scope unless you set proper measures i.e. your object's `__index` points back to `_G`.
@@ -127,6 +125,7 @@ Things to note about self-scope:
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 - Should assign-to include the boolean operators `and=` `or=` ?
 - Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression. 
+- I added `??=` but didn't add `??` ...
 
 # Complementing Features In Other Libraries:
 

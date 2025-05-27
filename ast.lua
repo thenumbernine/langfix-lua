@@ -573,12 +573,12 @@ function ast._function:toLuaFixed_recursive(consume)
 		consume'('
 		closeplz = true
 	end
-	consume'['
+	consume'|'
 	for i,arg in ipairs(args) do
 		consume(arg)
 		if i < #args then consume',' end
 	end
-	consume']'
+	consume'|'
 	if #self == 1
 	and ast._return:isa(self[1])
 	then

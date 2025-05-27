@@ -1,48 +1,48 @@
 #!/usr/bin/env rua
 
 -- single-statement lambdas
-assert.eq( ([]1)(), 1)
-assert.eq( ([x]x+1)(1), 2)
+assert.eq( (||1)(), 1)
+assert.eq( (|x|x+1)(1), 2)
 
 -- single-statement lambda with multiple-return ... works
-assert.eq( ([x](x+1,x+2))(1), 2)
-assert.eq( select(2, ([x](x+1,x+2))(1)), 3)
-assert.eq( ([x](x+1, x+1))(1), 2)
+assert.eq( (|x|(x+1,x+2))(1), 2)
+assert.eq( select(2, (|x|(x+1,x+2))(1)), 3)
+assert.eq( (|x|(x+1, x+1))(1), 2)
 -- but now it takes two (( )) to truncate ...
-assert.eq( select(2, ([...](...))(1,2)), 2 )
-assert.eq( select(2, ([...]((...)))(1,2)), nil )
+assert.eq( select(2, (|...|(...))(1,2)), 2 )
+assert.eq( select(2, (|...|((...)))(1,2)), nil )
 -- also, with single-expr mult-ret, two successive lambdas passed as args don't work anymore.
 -- the 2nd lambda becomes a 2nd mult-ret of the 1st lambda
 assert.eq(2, select('#', 1, 1))
-assert.eq(2, select('#', []1, []1))
+assert.eq(2, select('#', ||1, ||1))
 -- I went and enabled single-expr-mult-ret with syntactic sugar of extra parenthesis
---		like [x](x+1,x+2) is a single-expr mult-ret.
+--		like |x|(x+1,x+2) is a single-expr mult-ret.
 -- but typically extra-parenthesis-wrapping is used to truncate mult-ret to single-ret.
 -- so now single-expr-lambdas require two parenthesis to truncate mult-ret functions
 
-local I = [...]...
-assert.eq( ([...]I(I(...)))(1), 1)
+local I = |...|...
+assert.eq( (|...|I(I(...)))(1), 1)
 
-local x = ([...]I(I(...)))(1)	-- works assigning
-I(([...]I(I(...)))(1))			-- works wrapped in forward function
---([...]I(I(...)))(1)			-- but doesn't work on its own ... instead it gets parsed as a call to the previous expression, which evaluates to a number, and we get "attempt to call a number value"
---[...]I(I(...))(1)				-- parse error
+local x = (|...|I(I(...)))(1)	-- works assigning
+I((|...|I(I(...)))(1))			-- works wrapped in forward function
+--(|...|I(I(...)))(1)			-- but doesn't work on its own ... instead it gets parsed as a call to the previous expression, which evaluates to a number, and we get "attempt to call a number value"
+--|...|I(I(...))(1)				-- parse error
 
 -- multiple-statement lamda
-assert.eq( ([n] do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
+assert.eq( (|n| do local sum=0 for i=1,n do sum = sum + i end return sum end)(10), 55)
 
 -- function metamethods (in ext)
-local g = ([x]x+1) * ([x]x-1)
+local g = (|x|x+1) * (|x|x-1)
 -- function g(x) = (x+1)*(x-1)
 assert.eq(g(2), (2+1)*(2-1))
 assert.eq(g(3), (3+1)*(3-1))
 -- tempting to make a :cartesian :product :outer or something like that which combines args and multiplies results ...
 
 -- implicit 'self' argument
-assert.eq( ([:]self)(3), 3)
-assert.eq( ([:, x]self+x)(3, 4), 7)
+assert.eq( (|:|self)(3), 3)
+assert.eq( (|:, x|self+x)(3, 4), 7)
 
-do local x = ([]3)() assert.eq(x, 3) end
+do local x = (||3)() assert.eq(x, 3) end
 
 -- bit operators
 assert.eq(2 << 2, 8)
@@ -50,7 +50,7 @@ assert.eq(2 << 2, 8)
 -- op-assign
 do
 	local x = 1 x += 2 assert.eq(x, 3)
-	local x = {a=3, b=[]4} x.a += x:b() assert.eq(x.a, 7)
+	local x = {a=3, b=||4} x.a += x:b() assert.eq(x.a, 7)
 	local x = 7 x /= 2 assert.eq(x, 3.5)
 	local x = 7 x //= 2 assert.eq(x, 3)
 end
@@ -67,8 +67,8 @@ do
 end
 
 --[=[ bit operator metamethods ... not supported yet
-local g = ([x]x+1) << ([x]x-1)
--- g = [x] (x+1)*(x-1)
+local g = (|x|x+1) << (|x|x-1)
+-- g = |x| (x+1)*(x-1)
 assert.eq(g(2), (2+1) << (2-1))
 assert.eq(g(3), (3+1) << (3-1))
 --]=]
@@ -80,10 +80,10 @@ if int then assert.eq(int(7)/int(2), int(3)) end
 assert.eq(7//2, 3)
 
 -- lambda + function-operator
-assert.eq((([x]x+1) * ([x]x-1))(3), 8)
+assert.eq(((|x|x+1) * (|x|x-1))(3), 8)
 
 -- function operators
-assert.eq(([x,y]x+y):bind(2)(3), 5)
+assert.eq((|x,y|x+y):bind(2)(3), 5)
 
 --[=[ TODO test locals-as-default
 -- but that should be shimming using require(), not load(), so I do need to move its scope to load() as well ...
@@ -121,10 +121,10 @@ do
 	local a = nil
 	assert.eq(a?(), nil)			-- optcall
 
-	assert.error([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	assert.error(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
 	local a = {}
-	assert.error([]a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
+	assert.error(||a?.b?.c())	-- error cuz a?.b?.c is nil, and that'll be called (right? or does it short-circuit?)
 
 	assert.eq(a?.b?(), nil)		-- optcall optindex
 	assert.eq(a?.b?.c?(), nil)	-- optcall optindex
@@ -133,7 +133,7 @@ do
 
 	assert.eq(a?.b?:c?(), nil)	-- optcall optindexself absent
 
-	a.b = [x] assert.eq(x, a)
+	a.b = |x| assert.eq(x, a)
 	assert.eq(a?:b(), a)				-- call optindexself present
 	assert.eq(a?.b(a), a)			-- call optindex present
 	assert.eq(a?.b?(a), a)			-- optcall optindex present
@@ -167,8 +167,8 @@ do
 
 	-- optional-write and call?
 	local a = {}
-	--assert.eq(a?.b=([]4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
-	assert.eq((a?.b=([]4))(), 4)	-- this assigns the function to b ... () precedence
+	--assert.eq(a?.b=(||4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
+	assert.eq((a?.b=(||4))(), 4)	-- this assigns the function to b ... () precedence
 	assert.type(a.b, 'function')
 	-- and what happens if we proceed a call with a = default value? idk? nothing?
 	assert(not load'assert.eq(a.b?()=5, 4)')
@@ -190,7 +190,7 @@ do
 	-- I could resolve them maybe if I allowed rewinding tokens
 	-- it gets worse when you consider safe-navigation ?[] and ternary-with-lambdas ?[]
 
-	local a = []nil
+	local a = ||nil
 	local tmp = a() ? false : 2 assert.eq(tmp, 2)
 	assert.eq( a() ? false : 2, 2)
 	assert.eq( (a() ? false : 2), 2)
@@ -257,14 +257,14 @@ end
 -- :bind(), :co() function metatable
 -- :resume() thread metatable
 -- int ctype global
-if int then assert.tableieq({([x,y] do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
+if int then assert.tableieq({(|x,y| do coroutine.yield(x << y) end):bind(int(3)):co():resume(int(4))}, {true, 48}) end
 
---print:o([x]x+1):bind(1)()
+--print:o(|x|x+1):bind(1)()
 
 -- make sure our inlined code local variables aren't messing with us
 do
 	local t={}
-	t.k=[]2
+	t.k=||2
 	assert.type(t.k, 'function')
 	assert.eq(t.k(), 2)
 end
@@ -274,9 +274,7 @@ do
 	local x = 'k'
 	local t = {
 		[x] = 2,	-- t.k = 2
-
-		--[x] x^2,	-- t[1] = function(x) return x^2 end, ... fails without parentheiss
-		([x] x^2),	-- ... so you have to do this
+		|x| x^2,
 	}
 	assert.eq(t.k, 2)
 	assert.eq(t[1](2), 4)
@@ -308,7 +306,7 @@ end
 -- same thing but with lambdas
 do
 	local t={member=43}
-	t.k=[::,assert,arg]do
+	t.k=|::,assert,arg|do
 		assert.eq(member, 43)
 		assert.eq(arg, 42)
 		assert.eq(globalscope, nil)
@@ -320,7 +318,7 @@ end
 do
 	-- if you want file/global scope then you need to set that in the __index function ...
 	local t=setmetatable({member=43},{__index=getfenv and getfenv(1) or _ENV})
-	t.k=[::,arg]do
+	t.k=|::,arg|do
 		assert.eq(member, 43)
 		assert.eq(arg, 42)
 		assert.eq(globalscope, 'globalscope')
@@ -343,54 +341,54 @@ do
 end
 
 -- I am not fully satisfied with lambda syntax
--- one being: the arguments. [x] x^2 ... vs ... |x| x^2 ... vs ... <x> x^2 ... vs ... (x) => x^2
+-- one being: the arguments. |x| x^2 ... vs ... |x| x^2 ... vs ... <x> x^2 ... vs ... (x) => x^2
 -- single-expression-multiple-return lambdas ...
 do
 	-- [[ how it is:
 	-- single-expr-lambdas in expressions only take the first expression as a single-return
-	local f = [a,b,c,d,e]do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
-	f(1, 2, [x]3, 4, 5)
+	local f = |a,b,c,d,e|do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
+	f(1, 2, |x|3, 4, 5)
 	-- if you want a single-expr lambda to multiple-return then you have to wrap the return expressions in ( )
-	local f = [a,b,c,d,e]do
+	local f = |a,b,c,d,e|do
 		assert.tableieq({a,b, d, e}, {1,2, nil, nil})
 		assert.tableieq({c()}, {3,4,5})
 	end
-	f(1, 2, [x](3, 4, 5))
+	f(1, 2, |x|(3, 4, 5))
 	-- and if you want to invoke function argument truncation ... which is typically ( ) ... welp one is already for multret so that's two (( ))'s
-	local g = [](3, 4, 5)
-	local f = [a,b,c,d,e]do
+	local g = ||(3, 4, 5)
+	local f = |a,b,c,d,e|do
 		assert.tableieq({a,b, d, e}, {1,2,4,5})
 		assert.tableieq({c()}, {3,4,5})
 	end
-	f(1, 2, [x](g()), 4, 5)
-	local f = [a,b,c,d,e]do
+	f(1, 2, |x|(g()), 4, 5)
+	local f = |a,b,c,d,e|do
 		assert.tableieq({a,b, d, e}, {1,2, 4, 5})
 		assert.tableieq({c()}, {3,nil,nil})
 	end
-	f(1, 2, [x]((g())), 4, 5)
+	f(1, 2, |x|((g())), 4, 5)
 	-- notice I didn't truncate an expr list inline, i.e. I didn't write ((3,4,5)), because this is invalid Lua.
 	--]]
 
 	--[[ how maybe it should be ...
 	-- single-expr-lambdas in exprs capture multiple-exprs by default.  they take precedence over expr-lists.
 	-- this could be ambiguous to read honestly, I'm 50/50 on this.
-	local f = [a,b,c,d,e]do
+	local f = |a,b,c,d,e|do
 		assert.tableieq({a,b,d,e}, {1,2,nil,nil})
 		assert.tableieq({c()}, {3, 4, 5})
 	end
-	f(1, 2, [x]3, 4, 5)
+	f(1, 2, |x|3, 4, 5)
 	-- ... but if you want to stop reading args, wrap it in ( )
 	-- honestly it looks a bit more ugly than wrapping multret in ( )
 	-- but this does doulbe as the same way to prevent table key-exprs from being confused as lambdas ...
-	-- ... but that could be fixed by changing our lambda symbol from [x] to something else like |x| or <x>
-	local f = [a,b,c,d,e]do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
-	f(1, 2, ([x]3), 4, 5)
+	-- ... but that could be fixed by changing our lambda symbol from |x| to something else like |x| or <x>
+	local f = |a,b,c,d,e|do assert.tableieq({a,b,c(),d,e}, {1,2,3,4,5}) end
+	f(1, 2, (|x|3), 4, 5)
 	-- and now multret-truncation is back to just being single parenthesis around a single expression:
-	local f = [a,b,c,d,e]do
+	local f = |a,b,c,d,e|do
 		assert.tableieq({a,b, d, e}, {1,2, 4, 5})
 		assert.tableieq({c()}, {3,nil,nil})
 	end
-	f(1, 2, [x](g()), 4, 5)
+	f(1, 2, |x|(g()), 4, 5)
 	--]]
 end
 
