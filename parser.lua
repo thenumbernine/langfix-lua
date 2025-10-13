@@ -33,7 +33,7 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	local ast = self.ast
 	for _,cl in ipairs(ast.assignops) do
 		if self:canbe(cl.op, 'symbol') then
-			return cl(vars, (assert(self:parse_explist(), {msg='expected expr list'})))
+			return cl(vars, (assert(self:parse_explist(), 'MSG:expected expr list')))
 				:setspan{from = from, to = self:getloc()}
 		end
 	end
@@ -91,7 +91,7 @@ function LuaFixedParser:parse_prefixexp()
 	local from = self:getloc()
 
 	if self:canbe('(', 'symbol') then
-		local exp = assert(self:parse_exp(), {msg='expected expr'})
+		local exp = assert(self:parse_exp(), 'MSG:expected expr')
 		self:mustbe(')', 'symbol')
 		prefixexp = self:node('_par', exp)
 			:setspan{from = from, to = self:getloc()}
@@ -110,7 +110,7 @@ function LuaFixedParser:parse_prefixexp()
 				opt == '?[' and '_optindex'
 				or opt == '![' and '_assertindex'
 				or '_index'
-			prefixexp = self:node(classname, prefixexp, (assert(self:parse_exp(), {msg='expected expr'})))
+			prefixexp = self:node(classname, prefixexp, (assert(self:parse_exp(), 'MSG:expected expr')))
 			self:mustbe(']', 'symbol')
 			prefixexp:setspan{from = from, to = self:getloc()}
 		else
@@ -162,7 +162,7 @@ function LuaFixedParser:parse_prefixexp()
 						callClassName = '_call'
 					end
 
-					assert(args, {msg="function arguments expected"})
+					assert(args, "MSG:function arguments expected")
 					prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
 						:setspan{from = from, to = self:getloc()}
 				else
@@ -196,17 +196,17 @@ function LuaFixedParser:parse_prefixexp()
 		then
 			if opt:find'^%?' then	-- if it starts with ?, i.e. its an optional-index node
 				if ast._optcall:isa(prefixexp) then
-					error{msg="safe-navigation-assign only works after indexes, not calls"}
+					error"MSG:safe-navigation-assign only works after indexes, not calls"
 				end
 				local exp = self:parse_exp()
-				assert(exp, {msg="safe-navigation-assignment ?. = expected an expression"})
+				assert(exp, "MSG:safe-navigation-assignment ?. = expected an expression")
 				prefixexp.optassign = exp
 			elseif opt:find'^!' then
 				if ast._assertcall:isa(prefixexp) then
-					error{msg="non-nil-assert-assign only works after indexes, not calls"}
+					error"MSG:non-nil-assert-assign only works after indexes, not calls"
 				end
 				local exp = self:parse_exp()
-				assert(exp, {msg="non-nil-assert-assignment !. = expected an expression"})
+				assert(exp, "MSG:non-nil-assert-assignment !. = expected an expression")
 				prefixexp.assertassign = exp
 			else
 				error'FIXME'
@@ -237,13 +237,13 @@ function LuaFixedParser:parse_exp_ternary()
 		local c
 		if self:canbe('(', 'symbol') then
 			c = self:parse_explist()
-			assert(c, {msg=msg})
+			assert(c, 'MSG:'..msg)
 			self:mustbe(')', 'symbol')
 		else
 			--c = self:parse_prefixexp()
 			--c = self:parse_expr_precedenceTable(1)	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
 			c = self:parse_exp_ternary()
-			assert(c, {msg=msg})
+			assert(c, 'MSG:'..msg)
 			c = table{c}
 		end
 		return c
@@ -317,7 +317,7 @@ function LuaFixedParser:parse_functiondef()
 			-- and `|...|1, ...` would just return `1` and that 2nd `...` would belong to the scope outside the lambda.
 			if self:canbe('(', 'symbol') then
 				local explist = self:parse_explist()
-				assert(explist, {msg="expected expression"})
+				assert(explist, "MSG:expected expression")
 				block = {self:node('_return', table.unpack(explist))}
 				self:mustbe(')', 'symbol')
 			else
@@ -328,12 +328,12 @@ function LuaFixedParser:parse_functiondef()
 				-- though inside would be more flexible ... |x,y,z|x,y,z returns 3 args ...
 				--[[ will require parentehsis to wrap
 				local exp = self:parse_prefixexp()
-				assert(exp, {msg="expected expression"})
+				assert(exp, "MSG:expected expression")
 				block = {self:node('_return', exp)}
 				--]]
 				-- [[ won't require parenthesis to wrap
 				local exp = self:parse_exp()
-				assert(exp, {msg="expected expression"})
+				assert(exp, "MSG:expected expression")
 				block = {self:node('_return', exp)}
 				--]]
 				--[[ mult-ret, doesn't require () to wrap the return,
@@ -342,7 +342,7 @@ function LuaFixedParser:parse_functiondef()
 				-- i.e. `|x|x, |x|x` is a single-lambda that returns x and |x|x
 				-- (instead of two separate comma-separated expressions)
 				local explist = self:parse_explist()
-				assert(explist, {msg="expected expression"})
+				assert(explist, "MSG:expected expression")
 				block = {self:node('_return', table.unpack(explist))}
 				--]]
 			end
@@ -397,12 +397,12 @@ function LuaFixedParser:parse_field()
 		-- then if we find an = then it's a key-exp (and assert there was no : :: or parlist)
 		-- and if we didn't find an = then it's a lambda (and assert that if we did parse an expression as the key that it was just a single name)
 
-		local keyexp = assert(self:parse_exp(), {msg='unexpected symbol'})
+		local keyexp = assert(self:parse_exp(), 'MSG:unexpected symbol')
 		self:mustbe(']', 'symbol')
 
 		if self:canbe('=', 'symbol') then
 			local valexp = self:parse_exp()
-			if not valexp then error{msg="expected expression but found "..tostring(self.t.token)} end
+			if not valexp then error("MSG:expected expression but found "..tostring(self.t.token)) end
 			return self:node('_assign', {keyexp}, {valexp})
 				:setspan{from = from, to = self:getloc()}
 		else
@@ -418,7 +418,7 @@ function LuaFixedParser:parse_field()
 			{
 				self:node('_string', exp.name):setspan(exp.span)
 			}, {
-				(assert(self:parse_exp(), {msg='unexpected symbol'}))
+				(assert(self:parse_exp(), 'MSG:unexpected symbol'))
 			}
 		):setspan{from = from, to = self:getloc()}
 	else
