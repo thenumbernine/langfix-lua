@@ -27,7 +27,7 @@ package.path = parts:concat';'
 --print('arg', require 'ext.tolua'(arg))
 local oldarg = arg
 local runarg = arg[1]	-- file being run ...
-arg = {table.unpack(arg, 1)}
+arg = {[0]=arg[0], table.unpack(arg, 1)}
 --print('arg', require 'ext.tolua'(arg))
 
 -- TODO here handle all flags, stop at -- or filename
