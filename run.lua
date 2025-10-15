@@ -27,7 +27,7 @@ package.path = parts:concat';'
 --print('arg', require 'ext.tolua'(arg))
 local oldarg = arg
 local runarg = arg[1]	-- file being run ...
-arg = {[0]=arg[0], table.unpack(arg, 1)}
+arg = {table.unpack(arg, 1)}
 --print('arg', require 'ext.tolua'(arg))
 
 -- TODO here handle all flags, stop at -- or filename
@@ -104,8 +104,8 @@ if not fn then
 		interpreter(_G)
 	end
 elseif not path(fn):exists() then
-	arg[0] = fn
 	io.stderr:write('lua: cannot open '..fn..': No such file or directory\n')
 else
+	arg[0] = fn
 	assert(loadfile(fn))(table.unpack(arg))
 end
