@@ -133,7 +133,17 @@ do
 
 	assert.eq(a?.b?:c?(), nil)	-- optcall optindexself absent
 
-	a.b = |x| assert.eq(x, a)
+	local f = |x| assert.eq(x, a)
+	a.b = f
+
+	f?(a)
+
+	-- assert it works as a statement, without being passed as an expression
+	a?:b()
+	a?.b(a)
+	a.b?(a)
+	a['b']?(a)
+
 	assert.eq(a?:b(), a)				-- call optindexself present
 	assert.eq(a?.b(a), a)			-- call optindex present
 	assert.eq(a?.b?(a), a)			-- optcall optindex present

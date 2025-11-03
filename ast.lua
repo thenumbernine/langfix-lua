@@ -302,6 +302,7 @@ end
 --]]
 
 ast._optindex = ast._index:subclass()
+ast._optindex.canBeStat = true
 ast._optindex.type = 'optindex'
 function ast._optindex:serialize(consume)
 	consume'langfix.optindex('
@@ -338,6 +339,7 @@ end
 -- indexself was only valid when a child of call, so call(indexself(t,k)) turned into t:k(), which was language shorthand for t.k(t)
 -- call(optindexself(t,'k'), v) is going to turn into 't?:k(v)', turns into 'function(t,k, ...) if t==nil then return end return t[k](t, ...) end)(t, 'k', v)
 ast._optindexself = ast._indexself:subclass()
+ast._optindexself.canBeStat = true
 ast._optindexself.type = 'optindexself'
 function ast._optindexself:serialize(consume)
 	-- this should only ever be placed under a call or optcall, which will handle it themselves
@@ -404,6 +406,7 @@ function ast._optcall:toLuaFixed_recursive(consume)
 end
 
 ast._assertindex = ast._index:subclass()
+ast._assertindex.canBeStat = true
 ast._assertindex.type = 'assertindex'
 function ast._assertindex:serialize(consume)
 	consume'langfix.assertindex('
@@ -437,6 +440,7 @@ function ast._assertindex:toLuaFixed_recursive(consume)
 end
 
 ast._assertindexself = ast._indexself:subclass()
+ast._assertindexself.canBeStat = true
 ast._assertindexself.type = 'assertindexself'
 function ast._assertindexself:serialize(consume)
 	-- this should only ever be placed under a call or assertcall, which will handle it themselves
