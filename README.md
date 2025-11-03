@@ -111,6 +111,7 @@ Things to note about self-scope:
 
 - Merge leftargs-lua.
 - Getting rid of the assignment-? , and replace it with the walrus `:=` operator that assigns-and-returns.
+- Make `? :` single-expression so it doesn't mess up parenthesis and precedence.
 - How about octal number support?  0777 == 512 .  Binary too?
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
