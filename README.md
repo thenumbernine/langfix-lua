@@ -109,7 +109,7 @@ Things to note about self-scope:
 
 # TODO
 
-- Safe-navigation doesn't work as statements, only as expressions in the rhs of assignments.
+- Merge leftargs-lua.
 - How about octal number support?  0777 == 512 .  Binary too?
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...
 - Support for `function a['b']:c() end` to work just like `function a.b:c()` does.
@@ -126,8 +126,7 @@ Things to note about self-scope:
 - Should assign-to include the boolean operators `and=` `or=` ?
 - Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression. 
 - Did I break goto?
-- option-call i.e. `a?:b()` doesn't work as statements, only within subexpressions, so to use it you have to assign something to it.
-- how about changin `!` to be assert suffix operation and then `!.` and `!:` to be assert-index.
+- how about changing `!` to be assert suffix operation and then `!.` and `!:` to be assert-index.
 
 # Complementing Features In Other Libraries:
 
