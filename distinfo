@@ -10,6 +10,7 @@ files = {
 	["tests/parse.lua"] = "langfix/tests/parse.lua",
 	["tests/test.rua"] = "langfix/tests/test.rua",
 	["tokenizer.lua"] = "langfix/tokenizer.lua",
+	["langfix-dev-1.rockspec"] = "langfix/langfix-dev-1.rockspec",
 }
 deps = {
 	"bit",
