@@ -127,15 +127,28 @@ return function(env)
 	end
 
 	langfix.loadstate = require 'ext.load'(env)
-	langfix.loadstate.xforms:insert(function(data, source)
-		local tree, result
-		local parser = LuaFixedParser()
-		local success, msg = parser:setData(data, source)
-		if not success then return nil, msg end
-		tree = parser.tree
-		result = tree:toLua{maintainSpan=true}
+	langfix.loadstate.xforms:insert(function(data, source, mode, ...)
+		mode = mode or 'bt'
+		local canbin = mode:find'b'
+		local cantxt = mode:find't'
+
+		-- if it's binary data then oldload will handle it
+		if canbin and data:sub(1,3) == '\x1bLJ' then
+			return data
+		end
+
+		if cantxt then
+			local tree, result
+			local parser = LuaFixedParser()
+			local success, msg = parser:setData(data, source)
+			if not success then return nil, msg end
+			tree = parser.tree
+			result = tree:toLua{maintainSpan=true}
 --DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
-		return result
+			return result
+		end
+
+		return false, 'attempt to load chunk with wrong mode'
 	end)
 
 	--[[
