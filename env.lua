@@ -126,6 +126,17 @@ return function(env)
 		end
 	end
 
+	langfix.luaToFixed = function(data, source)
+		local tree, result
+		local parser = LuaFixedParser()
+		local success, msg = parser:setData(data, source)
+		if not success then return nil, msg end
+		tree = parser.tree
+		result = tree:toLua{maintainSpan=true}
+--DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
+		return result
+	end
+
 	langfix.loadstate = require 'ext.load'(env)
 	langfix.loadstate.xforms:insert(function(data, source, mode, ...)
 		mode = mode or 'bt'
@@ -138,14 +149,7 @@ return function(env)
 		end
 
 		if cantxt then
-			local tree, result
-			local parser = LuaFixedParser()
-			local success, msg = parser:setData(data, source)
-			if not success then return nil, msg end
-			tree = parser.tree
-			result = tree:toLua{maintainSpan=true}
---DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
-			return result
+			return langfix.luaToFixed(data, source)
 		end
 
 		return false, 'attempt to load chunk with wrong mode'
