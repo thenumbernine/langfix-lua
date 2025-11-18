@@ -18,7 +18,7 @@ assert((||do
 			print(||x)
 		]=])()
 
-	end, |err| err..'\n'..debug.traceback()))
+	end))
 
 end):co():resume())
 		
@@ -26,7 +26,7 @@ end):co():resume())
 local th = (||do
 	assert(xpcall(||do
 		print(||x)
-	end, |err| err..'\n'..debug.traceback()))
+	end))
 end):co()
 
 local th2 = (||do
@@ -36,16 +36,12 @@ end):co()
 assert(th2:resume())
 
 		]])()
-	end, function(err)
-		return err..'\n'..debug.traceback()
 	end))
 end):co()
 
 local th2 = (function()
 	assert(xpcall(function()
 		assert(th:resume())
-	end, function(err)
-		return err..'\n'..debug.traceback()
 	end))
 end):co()
 

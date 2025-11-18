@@ -10,10 +10,8 @@ assert((function()
 assert((||do
 	assert(xpcall(||do
 		print(||x)
-	end, |err| err..'\n'..debug.traceback()))
+	end))
 end):co():resume())
 		]])()
-	end, function(err)
-		return err..'\n'..debug.traceback()
 	end))
 end):co():resume())
