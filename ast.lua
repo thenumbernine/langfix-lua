@@ -615,6 +615,10 @@ local _continue = ast._stmt:subclass()
 _continue.type = 'continue'
 _continue.__name = 'continue'
 ast._continue = _continue
+function _continue:updateParser()
+	self.parser.continues = self.parser.continues or table()
+	self.parser.continues:insert(self)
+end
 function _continue:serialize(consume)	-- output lua
 	consume('goto '..self.gotoLabel)
 end
@@ -622,42 +626,27 @@ function _continue:toLuaFixed_recursive(consume)	-- output luafixed
 	consume'continue'
 end
 
--- [[ now add continue support to loops
--- this searches all children so it will slow down parsing a bit
--- solution? flag nodes in blockStack or something?
+-- now add continue support to loops
 -- _foreq _forin _while _repeat
 for _,name in ipairs{'_foreq', '_forin', '_while', '_repeat'} do
 	local oldcl = ast[name]
 	local cl = oldcl:subclass()
-	function cl:init(...)
-		oldcl.init(self, ...)
+	function cl:updateParser(...)
 		-- if we have a 'continue' in any children (or children or children...)
 		-- ... then insert a goto as the first statement
-
-		local label
-		-- this will call refreshparents() ... is it safe mid-AST-construction?
-		self:traverse(
-			nil, -- bubble-in
-			function(ch)	-- bubble-out
-				if _continue:isa(ch) then
-					if not label then
-						-- or maybe insert the filename or line number or something?
-						continueIndex = continueIndex + 1
-						label = 'langfix_continue_'..continueIndex
-					end
-					ch.gotoLabel = label
-				end
-				return ch
-			end
-		)
+		if not self.parser.continues then return end
+		continueIndex = continueIndex + 1
+		local label = 'langfix_continue_'..continueIndex
+		for _,ch in ipairs(self.parser.continues) do
+			ch.gotoLabel = label
+		end
 
 		-- if we need a goto label for continue then insert it as our last stmt
-		if label then
-			table.insert(self, ast._label(label))
-		end
+		table.insert(self, ast._label(label))
+
+		self.parser.continues = nil
 	end
 	ast[name] = cl
 end
---]]
 
 return ast
