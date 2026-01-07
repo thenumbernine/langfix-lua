@@ -36,6 +36,9 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	self.symbols:insert'!['
 	self.symbols:insert'!:'
 	self.symbols:insert'!('
+
+	-- walrus opertor
+	self.symbols:insert':='
 end
 
 return LuaFixedTokenizer

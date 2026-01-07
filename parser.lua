@@ -22,6 +22,8 @@ function LuaFixedParser:init(data, source)
 
 	local shiftIndex, shift = self.parseExprPrecedenceRulesAndClassNames:find(nil, function(level) return level.name == 'shift' end)
 	table.insert(shift.rules, {token='>>>', className='_ashr'})
+
+	-- insert walrus operator after 'and' ?
 end
 
 function LuaFixedParser:buildTokenizer(data)
@@ -233,16 +235,32 @@ function LuaFixedParser:parse_prefixexp()
 	return prefixexp
 end
 
--- [=[ ternary operator
 function LuaFixedParser:parse_exp()
-	return self:parse_exp_ternary()	-- typically goes to parse_exp_or ...
+	return self:parse_exp_walrus()	-- typically goes to parse_exp_or ...
 end
 
+-- I have this here instead of the rules because exp goes to this first, then to ternary (which doesnt fit the rules mould), then on to the rules.
+function LuaFixedParser:parse_exp_walrus()
+	local ast = self.ast
+	local from = self:getloc()
+	local a = self:parse_exp_ternary()
+	if not a then return end
+	if self:canbe(':=', 'symbol') then
+		local b = self:parse_exp_ternary()
+		return self:node('_walrus', a, b)
+			:setspan{from=from, to=self:getloc()}
+	end
+	return a
+end
+
+-- [=[ ternary operator
 function LuaFixedParser:parse_exp_ternary()
 	local ast = self.ast
 	local from = self:getloc()
 	local a = self:parse_expr_precedenceTable(1)
 	if not a then return end
+	
+	-- necessary or was it done in the previous call to get `a` already?
 	a:setspan{from = from, to = self:getloc()}
 
 	-- if we get a ( then handle many and expect a )

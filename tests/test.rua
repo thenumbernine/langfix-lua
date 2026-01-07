@@ -412,4 +412,21 @@ do
 	assert.eq(sum, 50)
 end
 
+-- walrus-operator
+do
+	local a = 20
+	assert.eq(a, 20)
+	local b = a := 5
+	assert.eq(a, 5)
+	assert.eq(b, 5)
+end
+do
+	-- multiple? no, because walrus-parser is an expression, so it wont parse exp-lists ... 
+	-- unless I do like I did for ternary to handle exp-lists ... which would mean wrapping it in parenthesis ... 
+	-- which is ugly for ternary and would be ugly for walrus ...
+	local a,b = 3,4
+	local c = a,b := 1,2
+	print(a,b,c)
+end
+
 print'done'

@@ -47,7 +47,11 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 
 `a ?? b` returns `a` if it is not nil, `b` otherwise.
 
-## continue
+## Walrus Operator:
+
+`a := b` will assign `b` to `a` and return `b`.  Currently this is only for single-expressions, i.e. no `a,b := 1,2` will assign 1 to b and nothing to a.
+
+## Continue
 
 `continue` will jump to the end of any `for`, `while`, or `repeat` loop.
 
@@ -112,7 +116,7 @@ Things to note about self-scope:
 # TODO
 
 - Merge leftargs-lua.
-- Getting rid of the assignment-? , and replace it with the walrus `:=` operator that assigns-and-returns.
+- Getting rid of the optional-assignment `?[..]=` operator
 - Make `? :` single-expression so it doesn't mess up parenthesis and precedence.
 - How about octal number support?  0777 == 512 .  Binary too?
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...

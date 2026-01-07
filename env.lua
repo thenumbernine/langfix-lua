@@ -133,7 +133,7 @@ return function(env)
 		if not success then return nil, msg end
 		tree = parser.tree
 		result = tree:toLua{maintainSpan=true}
---DEBUG:print('\n'..source..'\n'..showcode(result)..'\n')
+--DEBUG:print('\n'..tostring(source)..'\n'..showcode(result)..'\n')
 		return result
 	end
 
@@ -149,9 +149,7 @@ return function(env)
 		end
 
 		if cantxt then
-			local result = langfix.luaToFixed(data, source)
---DEBUG:print(require 'template.showcode'(result))
-			return result
+			return langfix.luaToFixed(data, source)
 		end
 
 		return false, 'attempt to load chunk with wrong mode'

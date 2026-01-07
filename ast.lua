@@ -649,4 +649,18 @@ for _,name in ipairs{'_foreq', '_forin', '_while', '_repeat'} do
 	ast[name] = cl
 end
 
+local _walrus = ast._op:subclass()
+ast._walrus = _walrus
+_walrus.op = ':='
+_walrus.toLuaFixed_recursive = _walrus.serialize	-- use default for luafixed
+function _walrus:serialize(consume)	-- use this for lua
+	consume'((function(...)'
+	consume(self[1])
+	consume'= ...'
+	consume'return ...'
+	consume'end)('
+	consume(self[2])
+	consume'))'
+end
+
 return ast
