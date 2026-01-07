@@ -49,7 +49,15 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 
 ## Walrus Operator:
 
-`a := b` will assign `b` to `a` and return `b`.  Currently this is only for single-expressions, i.e. no `a,b := 1,2` will assign 1 to b and nothing to a.
+`a := b` will assign `b` to `a` and return `b`.
+
+It works with expression-lists as well: `a,b := 1,2` does what you think.
+
+It works in statements, loops, etc.
+
+However it does not work with function arguments and multiple-return-expansion.
+I.e. `f(a,b:=1,2)` will pass `1,2` to `f`.
+But `f(7,  a,b:=1,2)` will not prepend a 7 to the beginning of the function args, as you can typically do when expanding multiple return expressions (i.e. using `f(7, g())`).
 
 ## Continue
 
@@ -132,7 +140,7 @@ Things to note about self-scope:
 - How about `++` etc operators?  But for the latter I'd have to change the single-line comments `--` ...  maybe go as far as Python did and just do `+=` 's ?
 - I disagree so strongly with LuaJIT's default ctype struct index behavior of throwing errors if fields are missing, which breaks typical Lua convention of just returning nil, that I'm half-tempted to wrap all indexing operations in my `lua-ext`'s `op.safeindex` function, just to restore the original functionality, just to prove a point, even though I know it'll slow everything down incredibly.
 - Should assign-to include the boolean operators `and=` `or=` ?
-- Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression. 
+- Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression.
 - how about changing `!` to be assert suffix operation and then `!.` and `!:` to be assert-index.
 
 # Complementing Features In Other Libraries:

@@ -235,6 +235,36 @@ function LuaFixedParser:parse_prefixexp()
 	return prefixexp
 end
 
+
+-- if I make the walrus operator a part of parse_explist instead of parse_exp then can I chain multiple-assigns?
+-- then parse_exp() (invoked by parsing index expressions and fields) would need to also try to parse walrus for single-expressions ...
+-- but parse_explist() (for assign, return, function args) would need to also try to parse walrus for mult-assign ...
+-- but parse_explist() wouldn't want to call into parse_exp() or its handling of walrus might short-circuit parse_explist()'s handling of walrus ...
+-- so I might need to change parse_explist() to handle walrus and then call into the next-most expression like parse_exp_ternary instead of parse_exp ...
+function LuaFixedParser:parse_explist()
+	local from = self:getloc()
+	local exps = self:parse_explist_walrus_args()
+	if self:canbe(':=', 'symbol') then
+		local valueexps = self:parse_explist()	-- call itself and not next rule (parse_walrus_args) to allow chaining
+		return {(
+			self:node('_walrus', exps, valueexps)
+				:setspan{from=from, to=self:getloc()}
+		)}
+	end
+	return exps
+end
+-- this is like super's parse_explist except it calls parse_exp_ternary instead of parse_exp so that it will avoid the single-expression walrus operator
+function LuaFixedParser:parse_explist_walrus_args()
+	local exp = self:parse_exp_ternary()
+	if not exp then return end
+	local exps = table{exp}
+	while self:canbe(',', 'symbol') do
+		exps:insert((assert(self:parse_exp_ternary(), 'MSG:unexpected symbol')))
+	end
+	return exps
+end
+
+
 function LuaFixedParser:parse_exp()
 	return self:parse_exp_walrus()	-- typically goes to parse_exp_or ...
 end
@@ -247,7 +277,7 @@ function LuaFixedParser:parse_exp_walrus()
 	if not a then return end
 	if self:canbe(':=', 'symbol') then
 		local b = self:parse_exp_ternary()
-		return self:node('_walrus', a, b)
+		return self:node('_walrus', {a}, {b})
 			:setspan{from=from, to=self:getloc()}
 	end
 	return a
@@ -259,7 +289,7 @@ function LuaFixedParser:parse_exp_ternary()
 	local from = self:getloc()
 	local a = self:parse_expr_precedenceTable(1)
 	if not a then return end
-	
+
 	-- necessary or was it done in the previous call to get `a` already?
 	a:setspan{from = from, to = self:getloc()}
 

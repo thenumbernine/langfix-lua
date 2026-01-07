@@ -651,16 +651,24 @@ end
 
 local _walrus = ast._op:subclass()
 ast._walrus = _walrus
-_walrus.op = ':='
-_walrus.toLuaFixed_recursive = _walrus.serialize	-- use default for luafixed
+_walrus.op = ':='	-- used?
+function _walrus:init(vars, exprs)
+	self.vars = table(vars)
+	self.exprs = table(exprs)
+end
+function _walrus:toLuaFixed_recursive(consume)
+	commasep(self.vars, consume)
+	consume':='
+	commasep(self.exprs, consume)
+end
 function _walrus:serialize(consume)	-- use this for lua
-	consume'((function(...)'
-	consume(self[1])
+	consume'(function(...)'
+	commasep(self.vars, consume)
 	consume'= ...'
 	consume'return ...'
 	consume'end)('
-	consume(self[2])
-	consume'))'
+	commasep(self.exprs, consume)
+	consume')'
 end
 
 return ast

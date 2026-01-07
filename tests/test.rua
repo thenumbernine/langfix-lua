@@ -419,14 +419,95 @@ do
 	local b = a := 5
 	assert.eq(a, 5)
 	assert.eq(b, 5)
+
+	-- does it work in places the `exp` rule works without `explist` ?
+	-- such as table and index of . and [] ?
+	local t = {}
+	t[a := 3] = 'foo'
+	assert.eq(a, 3)
+	assert.eq(t[3], 'foo')
+
+	-- vanilla Lua has a syntax error
+	-- oops, I guess you can't have index assign statements whose table expression is in parenthesis...
+	--(t)[3] = 'bar' a=t
+	--(a := t)[3] = 'bar'
+
+	-- but as long as it's an expression you can assign just fine
+	local tmp = (a := t)[3]
+	assert.eq(tmp, 'foo')
+	assert.eq(a, t)
 end
 do
-	-- multiple? no, because walrus-parser is an expression, so it wont parse exp-lists ... 
-	-- unless I do like I did for ternary to handle exp-lists ... which would mean wrapping it in parenthesis ... 
-	-- which is ugly for ternary and would be ugly for walrus ...
+	-- walrus explist
 	local a,b = 3,4
-	local c = a,b := 1,2
-	print(a,b,c)
+	local c,d = a,b := 1,2
+	assert.eq(a, 1)
+	assert.eq(b, 2)
+	assert.eq(c, 1)
+	assert.eq(d, 2)
+
+	-- multret for table assignment?
+	local t = {}
+	t.a, t.b = 5, 6
+	t.c, t.d = t.a, t.b := 7, 8
+	assert.eq(t.a, 7)
+	assert.eq(t.b, 8)
+	assert.eq(t.c, 7)
+	assert.eq(t.d, 8)
+
+	-- multret order?
+	local a,b,c,d,e,f
+	-- notice I don't allow walrus as assignment.  just use equals. same same really.
+	--a,b := c,d := e,f := 2,3	-- syntax error
+	a,b = c,d := e,f := 2,3
+	assert.eq(a, 2) assert.eq(b, 3)
+	assert.eq(c, 2) assert.eq(d, 3)
+	assert.eq(e, 2) assert.eq(f, 3)
+
+
+	-- calling? yes
+	local a,b
+	local function f(x,y)
+		assert.eq(x, 9)
+		assert.eq(y, 8)
+	end
+	f(a,b := 9,8)
+	assert.eq(a, 9)
+	assert.eq(b, 8)
+
+	--[[ call args? and prepending more varargs?
+	local a,b
+	local function f(x,y,z)
+		assert.eq(x, 7)
+		assert.eq(y, 5)
+		assert.eq(z, 6)
+	end
+	--f(7, 9, 8)	-- what we are aiming for ...
+	-- no, because I don't mix walrus into the parse_explist ...
+	-- what's happening?  it's putting the 7 in the explist ...
+	-- so the issue becomes, how to tell the language when to begin parsing :=
+	-- I could have it search through the exp-list and simply cut out anything that cannot be assigned ...
+	-- I don't like how ambiguous it can become
+	-- this would cause:
+	-- 		f(7, a, b := 1,2) passes 7,1,2
+	-- 	but f(t, a, b := 1,2) passes 1,2
+	--  and f(t.k, a, b := 1,2) passes 1,2
+	-- even though it would read nearly identical
+	-- but if not then how to prepend? hmm
+	-- better question, how to prepend assignable exprs?
+	-- what if I want f(t,a,b:=1,2) to pass t,1,2 ?
+	-- so two cases have dif behaviors based on preceding args.  not good.
+	-- ... use parenthesis? hmm, that'd make the grammar even more ugly.
+	f(7, a,b := 5,6)
+	assert.eq(a, 5)
+	assert.eq(b, 6)
+	--]]
+
+	local sum, a = 0, 0
+	while (a := a + 1) <= 4 do
+		sum += a
+	end
+	assert.eq(sum, 10)
 end
 
 print'done'
