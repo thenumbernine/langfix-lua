@@ -28,6 +28,21 @@ function LuaFixedParser:buildTokenizer(data)
 	return LuaFixedTokenizer(data, self.version, self.useluajit)
 end
 
+function LuaFixedParser:parse_stat_keyword()
+	local node = LuaFixedParser.super.parse_stat_keyword(self)
+	if node then return node end
+
+	if self:canbe('continue', 'keyword') then
+		if not ({['while']=1, ['repeat']=1, ['for =']=1, ['for in']=1})[self.blockStack:last()] then
+			error"MSG:continue not inside loop"
+		end
+		local from = self:getloc()
+		local node = self:node'_continue'
+			:setspan{from = from, to = self:getloc()}
+		return node
+	end
+end
+
 -- add op= parsing
 function LuaFixedParser:parse_assign(vars, from, ...)
 	local ast = self.ast

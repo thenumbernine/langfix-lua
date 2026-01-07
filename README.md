@@ -43,6 +43,14 @@ With these overloaded, it uses my [`lua-parser`](https://github.com/thenumbernin
 
 `&`, `|`, `<<`, `>>`, `>>>`.  These get implicitly converted to `bit.*` calls: .  They don't work with metatmethods (yet?).
 
+## Nil-Coalescing Operator:
+
+`a ?? b` returns `a` if it is not nil, `b` otherwise.
+
+## continue
+
+`continue` will jump to the end of any `for`, `while`, or `repeat` loop.
+
 ## Assign-to operators
 
 `..=`, `+=`, `-=`, `*=`, `/=`, `//=`, `%=`, `^=`, `&=`, `|=`, `<<=`, `>>=`, `>>>=`, `??=`.
@@ -58,7 +66,7 @@ Lambdas as multiple-statements: `|x,y| do return x+y end`.
 Lambdas as single-expressions can omit the `do return end`, i.e.: `|x,y| x+y`.
 
 Lambdas as single-expressions with multiple-returns need to have their expression-list wrapped in parenthesis to avoid ambiguity: `|x,y|(x+y,x-y)`.
-This means the Lua truncate-multiple-arguments operation of wrapping with extra `()` will take a second set of parenthesis.
+This means the Lua truncate-multiple-arguments operation of wrapping with extra `()` will take a second set of parenthesis: `singleret=||((multret()))`.
 
 Lambdas with a first argument of `:` is replaced with `self`: `|:|self` is equivalent to `|self|self`.
 
@@ -79,12 +87,6 @@ Ex: A lambda that truncates to the first value of a vararg will look like `|...|
 ## Non-Nil Assertion Operator:
 
 `a!.b`, `a!['b']`, `a!()`, `a!.b()`, `a!:b()`, `a.b!()`, `a!.b?()`, `a:b!()`, `a!:b!()` etc ... to error when an indexed field is `nil`.
-
-## Nil-Coalescing Operator:
-
-`a ?? b` returns `a` if it is not nil, `b` otherwise.
-
-`a ??= b` assigns `a` to `b` if `b` is not nil.
 
 ## Ternary operator
 

@@ -149,7 +149,9 @@ return function(env)
 		end
 
 		if cantxt then
-			return langfix.luaToFixed(data, source)
+			local result = langfix.luaToFixed(data, source)
+--DEBUG:print(require 'template.showcode'(result))
+			return result
 		end
 
 		return false, 'attempt to load chunk with wrong mode'

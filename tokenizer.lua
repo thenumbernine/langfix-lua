@@ -6,6 +6,8 @@ local LuaFixedTokenizer = LuaTokenizer:subclass()
 function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	LuaFixedTokenizer.super.initSymbolsAndKeywords(self, ...)
 
+	self.keywords['continue'] = true
+
 	-- TODO if anyone subclasses this then ast will be wrong
 	-- I might as well have parser.base.tokenizer ctor with a pointer to the parser
 	-- and then here point to self.parser.ast
@@ -36,4 +38,4 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	self.symbols:insert'!('
 end
 
-return LuaFixedTokenizer 
+return LuaFixedTokenizer
