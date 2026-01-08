@@ -39,11 +39,13 @@ return function(env)
 			return cbf()
 		end
 	end
-	langfix.nilcoalescing = function(t, cb)
+
+	-- fwd varargs in case cb() uses them
+	langfix.nilcoalescing = function(t, cb, ...)
 		if t ~= nil then
 			return t
 		else
-			return cb()
+			return cb(...)
 		end
 	end
 

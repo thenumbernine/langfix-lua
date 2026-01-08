@@ -26,6 +26,38 @@ for k,cl in pairs(ast) do
 	end
 end
 
+
+local function commasep(exprs, consume)
+	for i,arg in ipairs(exprs) do
+		consume(arg)
+		if i < #exprs then consume',' end
+	end
+end
+
+
+local _walrus = ast._op:subclass()
+ast._walrus = _walrus
+_walrus.op = ':='	-- used?
+function _walrus:init(vars, exprs)
+	self.vars = table(vars)
+	self.exprs = table(exprs)
+end
+function _walrus:toLuaFixed_recursive(consume)
+	commasep(self.vars, consume)
+	consume':='
+	commasep(self.exprs, consume)
+end
+function _walrus:serialize(consume)	-- use this for lua
+	consume'(function(...)'
+	commasep(self.vars, consume)
+	consume'= ...'
+	consume'return ...'
+	consume'end)('
+	commasep(self.exprs, consume)
+	consume')'
+end
+
+
 -- I could insert >>> into the symbols and map it to luajit arshift ...
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
 
@@ -40,47 +72,60 @@ local function consumeforname(name)
 	end
 end
 
-local assignops = table{
-	{'concatto', '..='},
-	{'addto', '+='},
-	{'subto', '-='},
-	{'multo', '*='},
-	{'divto', '/='},
-	{'idivto', '//=', not native_idiv and consumeforname'langfix.idiv' or nil},
-	{'modto', '%='},
-	{'powto', '^='},
-	{'bandto', '&=', not native_bitops and consumeforname'bit.band' or nil},
-	{'borto', '|=', not native_bitops and consumeforname'bit.bor' or nil},
+local assignopdescs = table{
+	{'concat', '..'},
+	{'add', '+'},
+	{'sub', '-'},
+	{'mul', '*'},
+	{'div', '/'},
+	{'idiv', '//', not native_idiv and consumeforname'langfix.idiv' or nil},
+	{'mod', '%'},
+	{'pow', '^'},
+	{'band', '&', not native_bitops and consumeforname'bit.band' or nil},
+	{'bor', '|', not native_bitops and consumeforname'bit.bor' or nil},
 	-- oh wait, that's not-equals ... hmm someone didn't think that choice through ...
 	-- coincidentally, xor is sometimes denoted as the not-equivalent symbol, because that's basically what it means, but how to distinguish between boolean and bitwise ...
 	-- I would like an xor-equals ... but I also like ^ as power operator ... and I don't like ~= as not-equals, but to change that breaks Lua compatability ...
-	{'bxorto', '~~=', not native_bitops and consumeforname'bit.bxor' or '%1 ~ %2'},	-- tempting to use ⊕= and just use ⊕ for xor ...
-	{'shlto', '<<=', not native_bitops and consumeforname'bit.lshift' or nil},
-	{'shrto', '>>=', not native_bitops and consumeforname'bit.rshift' or nil},
-	{'ashrto', '>>>=', not native_bitops and consumeforname'bit.arshift' or nil},
+	{'bxor', '~~', not native_bitops and consumeforname'bit.bxor' or '%1 ~ %2'},	-- tempting to use ⊕= and just use ⊕ for xor ...
+	{'shl', '<<', not native_bitops and consumeforname'bit.lshift' or nil},
+	{'shr', '>>', not native_bitops and consumeforname'bit.rshift' or nil},
+	{'ashr', '>>>', not native_bitops and consumeforname'bit.arshift' or nil},
 	-- TODO what about and= or= not= ?
-	{'nilcoalescingto', '??=', function(consume,a,b)
+	{'nilcoalescing', '??', function(consume,a,b)
 		-- TODO this matches _nilcoalescing below
 		consume'langfix.nilcoalescing('
 		consume(a)
 		consume','
-		consume' function() return '
+		-- fwd varargs in case b uses them
+		consume' function(...) return '
 		consume(b)
-		consume' end '
+		consume' end, '
+		consume' ... '
 		consume')'
 	end},
-}:mapi(function(info)
-	local name, op, binopexpr = table.unpack(info)
+}
+local assignops = table()
+local assignwalrusops = table()
+for _,info in ipairs(assignopdescs) do
+	local basename, baseop, binopexpr = table.unpack(info)
+
+	-- make operator-to i.e. += -= etc
+	local opeq = baseop .. '='
+	local nameeq = basename..'to'
 	binopexpr = binopexpr or function(consume,a,b)
 		consume'(('
 		consume(a)
-		consume(') '..op:sub(1, -2)..' (')
+		consume(') '..baseop..' (')
 		consume(b)
 		consume'))'
 	end
-	local cl = ast._assign:subclass{type=name, op=op, binopexpr=binopexpr}
+	local cl = ast._assign:subclass()
+	cl.type = nameeq
+	cl.op = opeq
+	cl.binopexpr = binopexpr
 	info[3] = cl
-	ast['_'..name] = cl
+	assert(ast['_'..nameeq] == nil)	-- make sure the name is free
+	ast['_'..nameeq] = cl
 	function cl:serialize(consume)
 		for i,v in ipairs(self.vars) do
 			consume(v)
@@ -99,16 +144,83 @@ local assignops = table{
 			consume(v)
 			if i < #self.vars then consume',' end
 		end
-		consume(' '..op..' ')
+		consume(' '..opeq..' ')
 		for i,v in ipairs(self.exprs) do
 			consume(v)
 			if i < #self.exprs then consume',' end
 		end
 	end
+	assignops:insert(cl)
 
-	return cl
-end)
+	-- now make the operator-walrus-to, i.e. +:= -:= etc
+	local opwalruseq = baseop .. ':='
+	local namewalruseq = basename..'_walrus_to'
+	binopexpr = binopexpr or function(consume,a,b)
+		consume'(('
+		consume(a)
+		consume(') '..baseop..' (')
+		consume(b)
+		consume'))'
+	end
+	local cl = ast._assign:subclass()
+	cl.type = namewalruseq
+	cl.op = opwalruseq
+	cl.binopexpr = binopexpr
+	info[3] = cl
+	assert(ast['_'..namewalruseq] == nil)	-- make sure the name is free
+	ast['_'..namewalruseq] = cl
+	function cl:serialize(consume)			-- Lua output
+		consume'(function(...)'
+		for i,v in ipairs(self.vars) do
+			consume(v)
+			if i < #self.vars then consume',' end
+		end
+		consume' = '
+		for i,v in ipairs(self.vars) do
+			consume'('
+			-- v[i] = v[i] op `select(i, ...)`
+			binopexpr(
+				consume,
+				v,
+				--ast._call('select', ast._number(i), ast._vararg())
+				' select('..i..', ...) '
+			)
+			consume')'
+			if i < #self.vars then consume',' end
+		end
+
+		-- now return all our vars
+		consume'return'
+		for i,v in ipairs(self.vars) do
+			consume(v)
+			if i < #self.vars then consume',' end
+		end
+
+		consume'end)'
+
+		-- pass in all our expressions
+		consume'('
+		for i,v in ipairs(self.vars) do
+			consume(self.exprs[i])
+			if i < #self.vars then consume',' end
+		end
+		consume')'
+	end
+	function cl:toLuaFixed_recursive(consume)	-- langfix output
+		for i,v in ipairs(self.vars) do
+			consume(v)
+			if i < #self.vars then consume',' end
+		end
+		consume(' '..opwalruseq..' ')
+		for i,v in ipairs(self.exprs) do
+			consume(v)
+			if i < #self.exprs then consume',' end
+		end
+	end
+	assignwalrusops:insert(cl)
+end
 ast.assignops = assignops
+ast.assignwalrusops = assignwalrusops
 
 -- Make a new 'ast' namespace and subclass all former classes into it so that we don't mess with anyone using the base-class
 ast._idiv = ast._idiv:subclass()
@@ -175,13 +287,6 @@ if not native_bitops then
 			end
 			consume'))'
 		end
-	end
-end
-
-local function commasep(exprs, consume)
-	for i,arg in ipairs(exprs) do
-		consume(arg)
-		if i < #exprs then consume',' end
 	end
 end
 
@@ -647,28 +752,6 @@ for _,name in ipairs{'_foreq', '_forin', '_while', '_repeat'} do
 		self.parser.continues = nil
 	end
 	ast[name] = cl
-end
-
-local _walrus = ast._op:subclass()
-ast._walrus = _walrus
-_walrus.op = ':='	-- used?
-function _walrus:init(vars, exprs)
-	self.vars = table(vars)
-	self.exprs = table(exprs)
-end
-function _walrus:toLuaFixed_recursive(consume)
-	commasep(self.vars, consume)
-	consume':='
-	commasep(self.exprs, consume)
-end
-function _walrus:serialize(consume)	-- use this for lua
-	consume'(function(...)'
-	commasep(self.vars, consume)
-	consume'= ...'
-	consume'return ...'
-	consume'end)('
-	commasep(self.exprs, consume)
-	consume')'
 end
 
 return ast

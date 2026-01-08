@@ -18,6 +18,9 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	for _,cl in ipairs(ast.assignops) do
 		self.symbols:insert(cl.op)
 	end
+	for _,cl in ipairs(ast.assignwalrusops) do
+		self.symbols:insert(cl.op)
+	end
 
 	self.symbols:insert'//'	-- always add idiv symbol
 

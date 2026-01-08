@@ -71,6 +71,12 @@ Works with vararg assignment too: `a,b,c += 1,2,3`.
 
 Assign-to-xor's symbol `~=` was already taken as not-equals, so I switched the assign-to-xor symbol to `~~=`.  Coincidentally, in math notation, xor is sometimes represented as a not-equals symbol.
 
+## Walrus-Assign-To
+
+`..:=`, `+:=`, `-:=`, `*:=`, `/:=`, `//:=`, `%:=`, `^:=`, `&:=`, `|:=`, `~~:=`, `<<:=`, `>>:=`, `>>>:=`, `??:=`.
+
+Why not.  It don't matter.  None of this matters.
+
 ## Shorthand Lambdas
 
 Lambdas as multiple-statements: `|x,y| do return x+y end`.
@@ -142,6 +148,7 @@ Things to note about self-scope:
 - Should assign-to include the boolean operators `and=` `or=` ?
 - Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression.
 - how about changing `!` to be assert suffix operation and then `!.` and `!:` to be assert-index.
+- I got lazy with walrus-assign-to precedence.  They should be dif functions successively called into the next but I just used a for-loop.
 
 # Complementing Features In Other Libraries:
 

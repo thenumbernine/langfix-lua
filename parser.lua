@@ -48,11 +48,35 @@ end
 -- add op= parsing
 function LuaFixedParser:parse_assign(vars, from, ...)
 	local ast = self.ast
+
+	-- op-to-as-assign
 	for _,cl in ipairs(ast.assignops) do
 		if self:canbe(cl.op, 'symbol') then
-			return cl(vars, (assert(self:parse_explist(), 'MSG:expected expr list')))
+			local valueexps = self:parse_explist()
+			if not valueexps then error('MSG:'..cl.op..' expected expr list') end
+			return self:node('_'..cl.type, vars, valueexps)
 				:setspan{from = from, to = self:getloc()}
 		end
+	end
+
+	-- walrus-to-as-assign
+	local ast = self.ast
+	-- should this be a list of calls, like expr rules?
+	for i=#ast.assignwalrusops,1,-1 do
+		local cl = ast.assignwalrusops[i]
+		if self:canbe(cl.op, 'symbol') then
+			local valueexps = self:parse_explist()
+			if not valueexps then error('MSG:'..cl.op..' expected expr list') end	-- call itself and not next rule (parse_walrus_args) to allow chaining
+			return self:node('_'..cl.type, vars, valueexps)
+				:setspan{from=from, to=self:getloc()}
+		end
+	end
+
+	-- walrus-as-assign
+	if self:canbe(':=', 'symbol') then
+		local valueexps = assert(self:parse_explist(), 'MSG::= expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
+		return self:node('_walrus', vars, valueexps)
+			:setspan{from=from, to=self:getloc()}
 	end
 
 	return LuaFixedParser.super.parse_assign(self, vars, from, ...)
@@ -244,13 +268,28 @@ end
 function LuaFixedParser:parse_explist()
 	local from = self:getloc()
 	local exps = self:parse_explist_walrus_args()
+
+	local ast = self.ast
+	-- should this be a list of calls, like expr rules?
+	for i=#ast.assignwalrusops,1,-1 do
+		local cl = ast.assignwalrusops[i]
+		if self:canbe(cl.op, 'symbol') then
+			local valueexps = assert(self:parse_explist(), 'MSG:expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
+			return {(
+				self:node('_'..cl.type, exps, valueexps)
+					:setspan{from=from, to=self:getloc()}
+			)}
+		end
+	end
+
 	if self:canbe(':=', 'symbol') then
-		local valueexps = self:parse_explist()	-- call itself and not next rule (parse_walrus_args) to allow chaining
+		local valueexps = assert(self:parse_explist(), 'MSG:expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
 		return {(
 			self:node('_walrus', exps, valueexps)
 				:setspan{from=from, to=self:getloc()}
 		)}
 	end
+
 	return exps
 end
 -- this is like super's parse_explist except it calls parse_exp_ternary instead of parse_exp so that it will avoid the single-expression walrus operator
@@ -275,11 +314,24 @@ function LuaFixedParser:parse_exp_walrus()
 	local from = self:getloc()
 	local a = self:parse_exp_ternary()
 	if not a then return end
+
+	-- TODO should this be a list of calls, like expr rules?
+	for i=#ast.assignwalrusops,1,-1 do
+		local cl = ast.assignwalrusops[i]
+		if self:canbe(cl.op, 'symbol') then
+			local b = self:parse_exp_ternary()
+			if not b then error('MSG: '..cl.op..' expected expr') end
+			return self:node('_'..cl.type, {a}, {b})
+				:setspan{from=from, to=self:getloc()}
+		end
+	end
+
 	if self:canbe(':=', 'symbol') then
-		local b = self:parse_exp_ternary()
+		local b = assert(self:parse_exp_ternary(), 'MSG: := expected expr')
 		return self:node('_walrus', {a}, {b})
 			:setspan{from=from, to=self:getloc()}
 	end
+
 	return a
 end
 
@@ -300,13 +352,13 @@ function LuaFixedParser:parse_exp_ternary()
 		local c
 		if self:canbe('(', 'symbol') then
 			c = self:parse_explist()
-			assert(c, 'MSG:'..msg)
+			if not c then error('MSG:'..msg) end
 			self:mustbe(')', 'symbol')
 		else
 			--c = self:parse_prefixexp()
 			--c = self:parse_expr_precedenceTable(1)	-- parsing the next-precedence (exp_or) here means you'll have to wrap chained ?:'s in ()'s or else it'll mess up the parsing
 			c = self:parse_exp_ternary()
-			assert(c, 'MSG:'..msg)
+			if not c then error('MSG:'..msg) end
 			c = table{c}
 		end
 		return c
