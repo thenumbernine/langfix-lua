@@ -62,7 +62,7 @@ end
 ast._ashr = ast._op:subclass{type='ashr', op='>>>'}
 
 local function consumeforname(name)
-	return function(consume,a,b)
+	return function(self, consume, a, b)
 		consume(name)
 		consume'('
 		consume(a)
@@ -91,7 +91,7 @@ local assignopdescs = table{
 	{'shr', '>>', not native_bitops and consumeforname'bit.rshift' or nil},
 	{'ashr', '>>>', not native_bitops and consumeforname'bit.arshift' or nil},
 	-- TODO what about and= or= not= ?
-	{'nilcoalescing', '??', function(consume,a,b)
+	{'nilcoalescing', '??', function(self, consume, a, b)
 		-- TODO this matches _nilcoalescing below
 		consume'langfix.nilcoalescing('
 		consume(a)
@@ -99,8 +99,13 @@ local assignopdescs = table{
 		-- fwd varargs in case b uses them
 		consume' function(...) return '
 		consume(b)
-		consume' end, '
-		consume' ... '
+		consume' end'
+
+		-- only do this if the node is currently inside a vararg function
+		if self.invarargfunc then
+			consume' , ... '
+		end
+
 		consume')'
 	end},
 }
@@ -109,16 +114,17 @@ local assignwalrusops = table()
 for _,info in ipairs(assignopdescs) do
 	local basename, baseop, binopexpr = table.unpack(info)
 
-	-- make operator-to i.e. += -= etc
-	local opeq = baseop .. '='
-	local nameeq = basename..'to'
-	binopexpr = binopexpr or function(consume,a,b)
+	binopexpr = binopexpr or function(self, consume, a, b)
 		consume'(('
 		consume(a)
 		consume(') '..baseop..' (')
 		consume(b)
 		consume'))'
 	end
+
+	-- make operator-to i.e. += -= etc
+	local opeq = baseop .. '='
+	local nameeq = basename..'to'
 	local cl = ast._assign:subclass()
 	cl.type = nameeq
 	cl.op = opeq
@@ -126,6 +132,15 @@ for _,info in ipairs(assignopdescs) do
 	info[3] = cl
 	assert(ast['_'..nameeq] == nil)	-- make sure the name is free
 	ast['_'..nameeq] = cl
+	if baseop == '??' then
+		-- nil-coalescing needs to read rom teh parser upon ctor
+		-- and determine if it is in a vararg
+		-- and push varargs if it is (so its sub-expressions can access varargs)
+		-- and not if it's not (becuse tring to access them if the're not there causes a Lua sntax error)
+		function cl:updateParser()
+			self.invarargfunc = self.parser.functionStack:last() == 'function-vararg'
+		end
+	end
 	function cl:serialize(consume)
 		for i,v in ipairs(self.vars) do
 			consume(v)
@@ -134,7 +149,7 @@ for _,info in ipairs(assignopdescs) do
 		consume' = '
 		for i,v in ipairs(self.vars) do
 			consume'('
-			binopexpr(consume, v, self.exprs[i])
+			binopexpr(self, consume, v, self.exprs[i])
 			consume')'
 			if i < #self.vars then consume',' end
 		end
@@ -155,13 +170,6 @@ for _,info in ipairs(assignopdescs) do
 	-- now make the operator-walrus-to, i.e. +:= -:= etc
 	local opwalruseq = baseop .. ':='
 	local namewalruseq = basename..'_walrus_to'
-	binopexpr = binopexpr or function(consume,a,b)
-		consume'(('
-		consume(a)
-		consume(') '..baseop..' (')
-		consume(b)
-		consume'))'
-	end
 	local cl = ast._assign:subclass()
 	cl.type = namewalruseq
 	cl.op = opwalruseq
@@ -169,6 +177,11 @@ for _,info in ipairs(assignopdescs) do
 	info[3] = cl
 	assert(ast['_'..namewalruseq] == nil)	-- make sure the name is free
 	ast['_'..namewalruseq] = cl
+	if baseop == '??' then
+		function cl:updateParser()
+			self.invarargfunc = self.parser.functionStack:last() == 'function-vararg'
+		end
+	end
 	function cl:serialize(consume)			-- Lua output
 		consume'(function(...)'
 		for i,v in ipairs(self.vars) do
@@ -180,6 +193,7 @@ for _,info in ipairs(assignopdescs) do
 			consume'('
 			-- v[i] = v[i] op `select(i, ...)`
 			binopexpr(
+				self,
 				consume,
 				v,
 				--ast._call('select', ast._number(i), ast._vararg())
