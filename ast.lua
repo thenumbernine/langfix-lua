@@ -98,6 +98,8 @@ local assignopdescs = table{
 		consume','
 		-- fwd varargs in case b uses them
 		consume' function(...) return '
+-- TODO I'd have to do this for nested nodes as well ...
+if type(b) ~= 'string' then b.invarargfunc = true end
 		consume(b)
 		consume' end'
 
@@ -183,6 +185,11 @@ for _,info in ipairs(assignopdescs) do
 		end
 	end
 	function cl:serialize(consume)			-- Lua output
+
+-- TODO I'd have to do this for nested nodes as well ...
+--for _,e in ipairs(self.exprs) do e.invarargfunc = true end
+self.invarargfunc = true
+
 		consume'(function(...)'
 		for i,v in ipairs(self.vars) do
 			consume(v)
@@ -380,6 +387,9 @@ end
 local _nilcoalescing = ast._op:subclass()
 _nilcoalescing.type = 'nilcoalescing'
 ast._nilcoalescing = _nilcoalescing
+function _nilcoalescing:updateParser()
+	self.invarargfunc = self.parser.functionStack:last() == 'function-vararg'
+end
 function _nilcoalescing:serialize(consume)
 	consume'langfix.nilcoalescing('
 	consume(self[1])
@@ -387,6 +397,14 @@ function _nilcoalescing:serialize(consume)
 	consume' function() return '
 	commasep(self[2], consume)
 	consume' end '
+
+	-- actually ...
+	-- this is only needed if the generated-code uses vararg ...
+	-- and that will also be in walrus-nilcoalescing-to's
+	if self.invarargfunc then
+		consume' , ... '
+	end
+
 	consume')'
 end
 function _nilcoalescing:toLuaFixed_recursive(consume)
