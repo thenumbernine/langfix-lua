@@ -42,6 +42,9 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 
 	-- walrus opertor
 	self.symbols:insert':='
+
+	-- left-arg-call
+	self.symbols:insert'->'
 end
 
 return LuaFixedTokenizer

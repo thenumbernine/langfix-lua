@@ -118,6 +118,14 @@ So in general most your ternary operators will have their 2nd and 3rd arguments 
 
 Ternary handles multiple-returns just like single-expression lambdas do: wrap it in parenthesis as to not confuse a tailing comma with a new expression-list entry: `a ?? (b,c) : (d,e)`.  Yup, same language issue applies as single-expression-lambdas: if you want to truncate a multiple-return then now you need to wrap it in two parenthesis. Maybe this risks being problematic if you combine single-expression-lambdas, ternary, and multiple-expression-returns.
 
+## Left-Call
+
+`a -> b` is equvalent to `b(a)`
+
+Works for expression-lists: `1,2 -> print` prints 1,2.
+
+Can be chained: `2 -> f -> g -> h` produces `h(g(f(2)))`
+
 ## Self-Scope
 
 `function k::v(...)` function definitions for C++-style `self`-scope via `setfenv` or `_ENV`.
@@ -129,7 +137,6 @@ Things to note about self-scope:
 
 # TODO
 
-- Merge leftargs-lua.
 - Getting rid of the optional-assignment `?[..]=` operator
 - Make `? :` single-expression so it doesn't mess up parenthesis and precedence.
 - How about octal number support?  0777 == 512 .  Binary too?
@@ -148,7 +155,6 @@ Things to note about self-scope:
 - Should assign-to include the boolean operators `and=` `or=` ?
 - Between shorthand lambda multiple-return needing something to distinguish its commas from any commas that would separate the lambda expression from other args, and the same exact problem in the ternary problem, maybe I should introduce syntax to both for wrapping multiple-expressions?  In both cases I require extra parenthesis, but these can get confusing with the fact that parenthesis-around-multiple-expressions is already supposed to represent truncating multiple-expressions down to one expression.
 - how about changing `!` to be assert suffix operation and then `!.` and `!:` to be assert-index.
-- I got lazy with walrus-assign-to precedence.  They should be dif functions successively called into the next but I just used a for-loop.
 
 # Complementing Features In Other Libraries:
 
@@ -158,5 +164,3 @@ Things to note about self-scope:
 	- `luajit -lext.ctypes`: C types at global scope. this is an easy optional `require` to vanilla LuaJIT.  I put this in
 - [`lua-local-default`](https://github.com/thenumbernine/lua-local-default):
 	- `luajit -llocal-default`: local-by-default, global-by-keyword.  But this just wedges the env-setting into every function.  It might be better to replace new-assigns with locals and a new `global` keyword with non-locals.
-- [`leftargs-lua`](https://github.com/thenumbernine/leftargs-lua):
-	- It turns out code reads left-to-right in evaluation order and in instruction order, with less skips back and forth, if you put the call function arguments on the left hand side.

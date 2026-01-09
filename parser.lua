@@ -267,7 +267,7 @@ end
 -- so I might need to change parse_explist() to handle walrus and then call into the next-most expression like parse_exp_ternary instead of parse_exp ...
 function LuaFixedParser:parse_explist()
 	local from = self:getloc()
-	local exps = self:parse_explist_walrus_args()
+	local exps = self:parse_explist_leftcall()
 
 	local ast = self.ast
 	-- should this be a list of calls, like expr rules?
@@ -292,6 +292,54 @@ function LuaFixedParser:parse_explist()
 
 	return exps
 end
+
+function LuaFixedParser:parse_explist_leftcall()
+	local ast = self.ast
+	local from = self:getloc()
+	local exps = self:parse_explist_walrus_args()
+
+	if self:canbe('->', 'symbol') then
+		local func = self:parse_exp_leftcall()
+		assert(func, "MSG:-> expected expr")
+
+		local call = self:node('_leftcall', func, table.unpack(exps))
+			:setspan{from=from, to=self:getloc()}
+
+--[[
+h(g) (f) (2,3)
+	          call
+		  call    (2,3)
+	  call    f
+     h    g
+
+h(g(f(2,3)))
+      call
+     h    call
+		 g	  call
+			 f    (2,3)
+--]]
+		-- reorder?
+		-- TODO this is ugly and bad and dangerous
+		local function reorder(call)
+			local func = call.func
+			if ast._leftcall:isa(func) then
+				call.func = func
+				assert.len(func.args, 1)	-- what if it's (exp -> (a,b,c -> func2)) ? hmmm
+				call.func = assert(func.args[1])
+				func.args = {call}
+				call = func
+				call.args[1] = reorder(call.args[1])
+			end
+			return call
+		end
+		call = reorder(call)
+
+		return {call}
+	end
+
+	return exps
+end
+
 -- this is like super's parse_explist except it calls parse_exp_ternary instead of parse_exp so that it will avoid the single-expression walrus operator
 function LuaFixedParser:parse_explist_walrus_args()
 	local exp = self:parse_exp_ternary()
@@ -312,14 +360,14 @@ end
 function LuaFixedParser:parse_exp_walrus()
 	local ast = self.ast
 	local from = self:getloc()
-	local a = self:parse_exp_ternary()
+	local a = self:parse_exp_leftcall()
 	if not a then return end
 
 	-- TODO should this be a list of calls, like expr rules?
 	for i=#ast.assignwalrusops,1,-1 do
 		local cl = ast.assignwalrusops[i]
 		if self:canbe(cl.op, 'symbol') then
-			local b = self:parse_exp_ternary()
+			local b = self:parse_exp_leftcall()
 			if not b then error('MSG: '..cl.op..' expected expr') end
 			return self:node('_'..cl.type, {a}, {b})
 				:setspan{from=from, to=self:getloc()}
@@ -327,12 +375,45 @@ function LuaFixedParser:parse_exp_walrus()
 	end
 
 	if self:canbe(':=', 'symbol') then
-		local b = assert(self:parse_exp_ternary(), 'MSG: := expected expr')
+		local b = assert(self:parse_exp_leftcall(), 'MSG: := expected expr')
 		return self:node('_walrus', {a}, {b})
 			:setspan{from=from, to=self:getloc()}
 	end
 
 	return a
+end
+
+function LuaFixedParser:parse_exp_leftcall()
+	local ast = self.ast
+	local from = self:getloc()
+	local exp = self:parse_exp_ternary()
+
+	if self:canbe('->', 'symbol') then
+		local func = self:parse_exp_leftcall()
+		assert(func, "MSG:-> expected expr")
+
+		local call = self:node('_leftcall', func, exp)
+			:setspan{from=from, to=self:getloc()}
+
+		-- TODO this is ugly and bad and dangerous
+		local function reorder(call)
+			local func = call.func
+			if ast._leftcall:isa(func) then
+				call.func = func
+				assert.len(func.args, 1)	-- what if it's (exp -> (a,b,c -> func2)) ? hmmm
+				call.func = assert(func.args[1])
+				func.args = {call}
+				call = func
+				call.args[1] = reorder(call.args[1])
+			end
+			return call
+		end
+		call = reorder(call)
+
+		return call
+	end
+
+	return exp
 end
 
 -- [=[ ternary operator

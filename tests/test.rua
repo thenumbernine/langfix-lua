@@ -555,4 +555,34 @@ do
 	assert.eq(b, -3)
 end
 
+-- left-call
+do
+	local f = |x,y| do
+		assert.eq(y, 4)
+		return x+1 
+	end
+	-- does handle mult args
+	local y = 2,4 -> f
+	assert.eq(y, 3)
+
+	-- TODO handle chaining ...
+	local f = |x,y| do 
+		return 'a', 'b' 
+	end
+	local g = |a,b| do 
+		return a..b 
+	end
+	local y = 2,3 -> f -> g
+	assert.eq(y, 'ab')
+
+	local h = |x| x..'c'
+	local y = 2,3 -> f -> g -> h
+	assert.eq(y, 'abc')
+
+	local a = |x| x-1
+	local b = |x| |y| x+y
+	local x = 3 -> a -> (3 -> b)
+	assert.eq(x, 5)
+end
+
 print'done'

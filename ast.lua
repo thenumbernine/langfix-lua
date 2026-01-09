@@ -641,7 +641,8 @@ end
 
 
 -- and for optindexself to work, now I have to add exceptions to call...
-local _call = ast._call:subclass()
+local supercall = ast._call
+local _call = supercall:subclass()
 ast._call = _call
 _call.toLuaFixed_recursive = _call.serialize	-- old serialize = langfix grammar
 function _call:serialize(consume)
@@ -785,6 +786,24 @@ for _,name in ipairs{'_foreq', '_forin', '_while', '_repeat'} do
 		self.parser.continues = nil
 	end
 	ast[name] = cl
+end
+
+local _leftcall = supercall:subclass()
+ast._leftcall = _leftcall
+function _leftcall:init(func, ...)
+	self.func = func
+	self.args = {...}
+end
+function _leftcall:serialize(consume)
+	consume(self.func)
+	consume'('
+	commasep(self.args, consume)
+	consume')'
+end
+function _leftcall:toLuaFixed_recursive(consume)
+	commasep(self.args, consume)
+	consume' -> '
+	consume(self.func)
 end
 
 return ast
