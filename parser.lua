@@ -74,7 +74,7 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 
 	-- walrus-as-assign
 	if self:canbe(':=', 'symbol') then
-		local valueexps = assert(self:parse_explist(), 'MSG::= expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
+		local valueexps = assert(self:parse_explist(), 'MSG: := expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
 		return self:node('_walrus', vars, valueexps)
 			:setspan{from=from, to=self:getloc()}
 	end
@@ -274,7 +274,8 @@ function LuaFixedParser:parse_explist()
 	for i=#ast.assignwalrusops,1,-1 do
 		local cl = ast.assignwalrusops[i]
 		if self:canbe(cl.op, 'symbol') then
-			local valueexps = assert(self:parse_explist(), 'MSG:expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
+			local valueexps = self:parse_explist()
+			if not valueexps then error('MSG:'..cl.op..' expected expr list') end	-- call itself and not next rule (parse_walrus_args) to allow chaining
 			return {(
 				self:node('_'..cl.type, exps, valueexps)
 					:setspan{from=from, to=self:getloc()}
@@ -283,7 +284,7 @@ function LuaFixedParser:parse_explist()
 	end
 
 	if self:canbe(':=', 'symbol') then
-		local valueexps = assert(self:parse_explist(), 'MSG:expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
+		local valueexps = assert(self:parse_explist(), 'MSG: := expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
 		return {(
 			self:node('_walrus', exps, valueexps)
 				:setspan{from=from, to=self:getloc()}
@@ -367,16 +368,16 @@ function LuaFixedParser:parse_exp_walrus()
 	for i=#ast.assignwalrusops,1,-1 do
 		local cl = ast.assignwalrusops[i]
 		if self:canbe(cl.op, 'symbol') then
-			local b = self:parse_exp_leftcall()
+			local b = self:parse_explist()
 			if not b then error('MSG: '..cl.op..' expected expr') end
-			return self:node('_'..cl.type, {a}, {b})
+			return self:node('_'..cl.type, {a}, b)
 				:setspan{from=from, to=self:getloc()}
 		end
 	end
 
 	if self:canbe(':=', 'symbol') then
-		local b = assert(self:parse_exp_leftcall(), 'MSG: := expected expr')
-		return self:node('_walrus', {a}, {b})
+		local b = assert(self:parse_explist(), 'MSG: := expected expr')
+		return self:node('_walrus', {a}, b)
 			:setspan{from=from, to=self:getloc()}
 	end
 
