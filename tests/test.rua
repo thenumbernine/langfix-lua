@@ -436,7 +436,7 @@ do
 	local tmp = (a := t)[3]
 	assert.eq(tmp, 'foo')
 	assert.eq(a, t)
-	
+
 	-- walrus-as-assign-stmt?
 	local a
 	a := 1
@@ -533,6 +533,26 @@ do
 	assert.eq(a.x.y.z, 10)
 	local _ = (((a ??:= {}).x ??:= {}).y ??:= {}).z ??:= 11
 	assert.eq(a.x.y.z, 10)
+
+
+	local a,b
+	local c,d = 1,2
+	local e,f = 3,4
+	local tmp = a,b := c,d +:= e,f *:= 2,3
+	assert.eq(e, 6)
+	assert.eq(f, 12)
+	assert.eq(c, 7)
+	assert.eq(d, 14)
+	assert.eq(a, 7)
+	assert.eq(b, 14)
+
+	local tmp = a,b -:= c,d +:= e,f := 2,3
+	assert.eq(e, 2)
+	assert.eq(f, 3)
+	assert.eq(c, 9)
+	assert.eq(d, 17)
+	assert.eq(a, -2)
+	assert.eq(b, -3)
 end
 
 print'done'

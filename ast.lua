@@ -149,6 +149,7 @@ for _,info in ipairs(assignopdescs) do
 			if i < #self.vars then consume',' end
 		end
 		consume' = '
+		assert.eq(#self.vars, #self.exprs)
 		for i,v in ipairs(self.vars) do
 			consume'('
 			binopexpr(self, consume, v, self.exprs[i])
@@ -221,9 +222,9 @@ self.invarargfunc = true
 
 		-- pass in all our expressions
 		consume'('
-		for i,v in ipairs(self.vars) do
+		for i,v in ipairs(self.exprs) do
 			consume(self.exprs[i])
-			if i < #self.vars then consume',' end
+			if i < #self.exprs then consume',' end
 		end
 		consume')'
 	end
