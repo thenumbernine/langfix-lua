@@ -585,4 +585,16 @@ do
 	assert.eq(x, 5)
 end
 
+-- combine walrus with left-call
+do
+	-- hmm should it return the 3 or the base {}
+	-- if you rearrange the left-args to right-args then yes 3 gets returned (since it is the last function executed-and-returned).
+	t = {}
+	local _ = t
+		-> (|t| t.x ??:= {})
+		-> (|t| t.y ??:= {})
+		-> (|t| t.z ??:= 3)
+	assert.eq(t.x.y.z, 3)
+end
+
 print'done'
