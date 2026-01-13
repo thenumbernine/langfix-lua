@@ -459,11 +459,10 @@ function ast._optindex:serialize(consume)
 end
 function ast._optindex:toLuaFixed_recursive(consume)
 	consume(self.expr)
-	consume'?'
 	if ast.keyIsName(self.key, self.parser) then
-		consume('.'..self.key.value)
+		consume('?.'..self.key.value)
 	else
-		consume'['
+		consume'?['
 		consume(self.key)
 		consume']'
 	end
@@ -781,7 +780,11 @@ for _,name in ipairs{'_foreq', '_forin', '_while', '_repeat'} do
 		end
 
 		-- if we need a goto label for continue then insert it as our last stmt
-		table.insert(self, ast._label(label))
+		local labelnode = ast._label(label)
+		-- but it needs to be a special goto that doesn't generate upon toLuaFixed 
+		--  (or the subsequent toLuaFixed -> Lua could generate the same label twice...)
+		function labelnode:toLuaFixed_recursive(consume) end
+		table.insert(self, labelnode)
 
 		self.parser.continues = nil
 	end
