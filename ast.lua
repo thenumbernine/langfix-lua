@@ -704,7 +704,11 @@ function ast._function:toLuaFixed_recursive(consume)
 		local name
 		if ast._indexself:isa(self.name) then
 			name = ast._index(self.name.expr, self.name.key)
-			args:insert(1, ast._var':')
+			args:insert(1, ast._var(
+				ast._indexselfscope:isa(self.name)
+				and '::'
+				or ':'
+			))
 		else
 			name = self.name
 		end
