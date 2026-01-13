@@ -18,7 +18,7 @@ function LuaFixedParser:init(data, source)
 	self.useluajit = not not _G.jit
 
 	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
-	LuaFixedParser.super.init(self, data, self.version, source, self.useluajit)
+	LuaFixedParser.super.init(self, data, source, self.version, self.useluajit)
 
 	local shiftIndex, shift = self.parseExprPrecedenceRulesAndClassNames:find(nil, function(level) return level.name == 'shift' end)
 	table.insert(shift.rules, {token='>>>', className='_ashr'})
