@@ -447,14 +447,6 @@ function ast._optindex:serialize(consume)
 	consume(self.expr)
 	consume','
 	consume(self.key)
-	consume', '
-	if self.optassign then
-		consume' function() return '
-		consume(self.optassign)
-		consume' end '
-	else
-		consume' nil '
-	end
 	consume')'
 end
 function ast._optindex:toLuaFixed_recursive(consume)
@@ -465,10 +457,6 @@ function ast._optindex:toLuaFixed_recursive(consume)
 		consume'?['
 		consume(self.key)
 		consume']'
-	end
-	if self.optassign then
-		consume' = '
-		consume(self.optassign)
 	end
 end
 
@@ -486,10 +474,6 @@ function ast._optindexself:toLuaFixed_recursive(consume)
 	consume(self.expr)
 	consume'?:'
 	consume(self.key)
-	if self.optassign then
-		consume' = '
-		consume(self.optassign)
-	end
 end
 
 -- subclass the original _call, not our new one ...
@@ -502,16 +486,8 @@ function ast._optcall:serialize(consume)
 		-- optcall optindexself
 		consume'langfix.optcallself('
 		consume(func.expr)
-		consume','
+		consume', '
 		consume(self.parser:node('_string', func.key))
-		consume','
-		if func.optassign then
-			consume' function() return '
-			consume(func.optassign)
-			consume' end '
-		else
-			consume' nil '
-		end
 		consume' '
 		for i,arg in ipairs(self.args) do
 			consume', '
@@ -521,7 +497,6 @@ function ast._optcall:serialize(consume)
 		-- indexself key is a Lua string so ... lazy I know
 	else
 		-- optcall anything else
-		-- can optassign go here? does it mean anything?
 		consume'langfix.optcall('
 		consume(func)
 		for i,arg in ipairs(self.args) do
@@ -551,13 +526,7 @@ function ast._assertindex:serialize(consume)
 	consume','
 	consume(self.key)
 	consume', '
-	if self.assertassign then
-		consume' function() return '
-		consume(self.assertassign)
-		consume' end '
-	else
-		consume' nil '
-	end
+	consume' nil '
 	consume')'
 end
 function ast._assertindex:toLuaFixed_recursive(consume)
@@ -569,10 +538,6 @@ function ast._assertindex:toLuaFixed_recursive(consume)
 		consume'['
 		consume(self.key)
 		consume']'
-	end
-	if self.assertassign then
-		consume' = '
-		consume(self.assertassign)
 	end
 end
 
@@ -587,10 +552,6 @@ function ast._assertindexself:toLuaFixed_recursive(consume)
 	consume(self.expr)
 	consume'!:'
 	consume(self.key)
-	if self.assertassign then
-		consume' = '
-		consume(self.assertassign)
-	end
 end
 
 ast._assertcall = ast._call:subclass()
@@ -604,13 +565,7 @@ function ast._assertcall:serialize(consume)
 		consume','
 		consume(self.parser:node('_string', func.key))
 		consume','
-		if func.assertassign then
-			consume' function() return '
-			consume(func.assertassign)
-			consume' end '
-		else
-			consume' nil '
-		end
+		consume' nil '
 		consume' '
 		for i,arg in ipairs(self.args) do
 			consume', '
@@ -651,14 +606,6 @@ function _call:serialize(consume)
 		consume(func.expr)
 		consume', '
 		consume(self.parser:node('_string', func.key))
-		consume', '
-		if func.optassign then
-			consume' function() return '
-			consume(func.optassign)
-			consume' end '
-		else
-			consume' nil '
-		end
 		consume' '
 		for i,arg in ipairs(self.args) do
 			consume', '
@@ -671,13 +618,7 @@ function _call:serialize(consume)
 		consume', '
 		consume(self.parser:node('_string', func.key))
 		consume', '
-		if func.assertassign then
-			consume' function() return '
-			consume(func.assertassign)
-			consume' end '
-		else
-			consume' nil '
-		end
+		consume' nil '
 		consume' '
 		for i,arg in ipairs(self.args) do
 			consume', '

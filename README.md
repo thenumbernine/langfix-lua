@@ -100,8 +100,6 @@ Ex: A lambda that truncates to the first value of a vararg will look like `|...|
 
 `a?.b`, `a?['b']`, `a?()`, `a?.b()`, `a?:b()`, `a.b?()`, `a?.b?()`, `a:b?()`, `a?:b?()` etc ... to bailout evaluation of indexes and calls early.
 
-"safe-navigation-assign operator": `a?.b=c` means "if a doesn't exist then bail out early.  if b doesn't exist then assign it c.  return b."
-
 ## Non-Nil Assertion Operator:
 
 `a!.b`, `a!['b']`, `a!()`, `a!.b()`, `a!:b()`, `a.b!()`, `a!.b?()`, `a:b!()`, `a!:b!()` etc ... to error when an indexed field is `nil`.
@@ -137,7 +135,6 @@ Things to note about self-scope:
 
 # TODO
 
-- Getting rid of the optional-assignment `?[..]=` operator
 - Make `? :` single-expression so it doesn't mess up parenthesis and precedence.
 - How about octal number support?  0777 == 512 .  Binary too?
 - `const` to substitute for `local<const>` ... if LuaJIT ever adopted attributes...

@@ -49,16 +49,11 @@ return function(env)
 		end
 	end
 
-	langfix.optindex = function(t, k, optassign)
+	langfix.optindex = function(t, k)
 		if t == nil then
 			return nil
 		end
-		local v = t[k]
-		if v == nil and optassign then
-			v = optassign()
-			t[k] = v
-		end
-		return v
+		return t[k]
 	end
 	langfix.optcall = function(v, ...)
 		if v == nil then
@@ -66,8 +61,8 @@ return function(env)
 		end
 		return v(...)
 	end
-	langfix.optcallself = function(t, k, optassign, ...)
-		return langfix.optcall(langfix.optindex(t, k, optassign), t, ...)
+	langfix.optcallself = function(t, k, ...)
+		return langfix.optcall(langfix.optindex(t, k), t, ...)
 	end
 
 	-- t!.k ...

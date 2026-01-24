@@ -229,31 +229,6 @@ function LuaFixedParser:parse_prefixexp()
 				end
 			end
 		end
-
--- [[ safe-navigation suffix `=` for optional-assignment to the key if it doesn't exist
--- if you just want optional value, use ternary `? :` / null-coalescence `??`
-		if opt
-		and self:canbe('=', 'symbol')
-		then
-			if opt:find'^%?' then	-- if it starts with ?, i.e. its an optional-index node
-				if ast._optcall:isa(prefixexp) then
-					error"MSG:safe-navigation-assign only works after indexes, not calls"
-				end
-				local exp = self:parse_exp()
-				assert(exp, "MSG:safe-navigation-assignment ?. = expected an expression")
-				prefixexp.optassign = exp
-			elseif opt:find'^!' then
-				if ast._assertcall:isa(prefixexp) then
-					error"MSG:non-nil-assert-assign only works after indexes, not calls"
-				end
-				local exp = self:parse_exp()
-				assert(exp, "MSG:non-nil-assert-assignment !. = expected an expression")
-				prefixexp.assertassign = exp
-			else
-				error'FIXME'
-			end
-		end
---]]
 	end
 
 	return prefixexp

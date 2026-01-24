@@ -156,35 +156,6 @@ do
 	assert(not load'a.b = a.c?')	-- make sure the trailing ? is an error
 end
 --]]
--- [[ safe-navigation-assignment
-do
-	local a = {}
-	assert.eq(a.b, nil)
-	assert.eq(a?.b=2, 2)
-	assert.eq(a.b, 2)
-	--optional-write
-	local d = {}
-	assert.eq(a.c, nil)
-	assert.eq(a?.c=d, d)
-	assert.eq(a.c, d)
-	--optional-read without write using ternary operator
-	assert.eq(a?.e?.f ?? d, d)	assert.eq(a?.e?.f, nil)
-
-	-- optional-write chained:
-	local a = {}
-	assert.eq(a?.b={}?.c={}?.d=2, 2)
-	assert.eq(a.b.c.d, 2)
-
-	-- optional-write and call?
-	local a = {}
-	--assert.eq(a?.b=(||4)(), 4)	-- this assigns the evaluated lambda to b, which is 4
-	assert.eq((a?.b=(||4))(), 4)	-- this assigns the function to b ... () precedence
-	assert.type(a.b, 'function')
-	-- and what happens if we proceed a call with a = default value? idk? nothing?
-	assert(not load'assert.eq(a.b?()=5, 4)')
-	assert(not load'assert.eq(a:b?()=5, 4)')
-end
---]]
 
 -- [[ ternary also?
 do
