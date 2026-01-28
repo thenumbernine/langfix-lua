@@ -124,6 +124,10 @@ Works for expression-lists: `1,2 -> print` prints 1,2.
 
 Can be chained: `2 -> f -> g -> h` produces `h(g(f(2)))`
 
+TODO maybe `a,x,y .-> b` is equivalent to `a.b(x,y)`
+
+TODO maybe `a,x,y :-> b` is equivalent to `a:b(x,y)`
+
 ## Self-Scope
 
 `function k::v(...)` function definitions for C++-style `self`-scope via `setfenv` or `_ENV`.
