@@ -18,7 +18,7 @@ function LuaFixedParser:init(data, source)
 
 	-- useluajit says whether we want to handle parsing LL and ULL
 	-- allow overriding, especially for when I run this in lua5.4+luaffifb in-browser, because I've hacked into that use of LL and ULL even though `jit` is missing
-	if self.useluajit ~= nil then
+	if self.useluajit == nil then
 		self.useluajit = not not _G.jit
 	end
 
