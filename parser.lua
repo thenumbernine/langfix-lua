@@ -15,7 +15,12 @@ end
 
 function LuaFixedParser:init(data, source)
 	self.version = 'Lua 5.4'
-	self.useluajit = not not _G.jit
+
+	-- useluajit says whether we want to handle parsing LL and ULL
+	-- allow overriding, especially for when I run this in lua5.4+luaffifb in-browser, because I've hacked into that use of LL and ULL even though `jit` is missing
+	if self.useluajit ~= nil then
+		self.useluajit = not not _G.jit
+	end
 
 	-- 5.4 means we're going to include 5.2 symbols: ?? ~ & | << >>
 	LuaFixedParser.super.init(self, data, source, self.version, self.useluajit)
