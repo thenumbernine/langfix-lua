@@ -440,7 +440,6 @@ end
 --]]
 
 ast._optindex = ast._index:subclass()
-ast._optindex.canBeStat = true
 ast._optindex.type = 'optindex'
 function ast._optindex:serialize(consume)
 	consume'langfix.optindex('
@@ -464,7 +463,6 @@ end
 -- indexself was only valid when a child of call, so call(indexself(t,k)) turned into t:k(), which was language shorthand for t.k(t)
 -- call(optindexself(t,'k'), v) is going to turn into 't?:k(v)', turns into 'function(t,k, ...) if t==nil then return end return t[k](t, ...) end)(t, 'k', v)
 ast._optindexself = ast._indexself:subclass()
-ast._optindexself.canBeStat = true
 ast._optindexself.type = 'optindexself'
 function ast._optindexself:serialize(consume)
 	-- this should only ever be placed under a call or optcall, which will handle it themselves
@@ -518,7 +516,6 @@ function ast._optcall:toLuaFixed_recursive(consume)
 end
 
 ast._assertindex = ast._index:subclass()
-ast._assertindex.canBeStat = true
 ast._assertindex.type = 'assertindex'
 function ast._assertindex:serialize(consume)
 	consume'langfix.assertindex('
@@ -542,7 +539,6 @@ function ast._assertindex:toLuaFixed_recursive(consume)
 end
 
 ast._assertindexself = ast._indexself:subclass()
-ast._assertindexself.canBeStat = true
 ast._assertindexself.type = 'assertindexself'
 function ast._assertindexself:serialize(consume)
 	-- this should only ever be placed under a call or assertcall, which will handle it themselves
@@ -593,6 +589,94 @@ function ast._assertcall:toLuaFixed_recursive(consume)
 	consume')'
 end
 
+-- assignments of optindex or assertindex will have to pass through a new langfix API call to work...
+-- this is the node used to output that
+-- its creation is in parse_assign,
+-- ast._assign is replaced with this in the case it has an optindex or assertindex in its vars
+--[[
+If lhs of assign is an opt then its lua-generation needs to be more than just an '='...
+hmm and what about multiple-assignment and optional-variables ...
+I guess if any are optindex or assertindex then detour
+
+a?.b, c?.d, e!.f, g, h = 1, 2, 3, 4, 5
+
+... how to implement this ...
+
+langfix.dummy, langfix.dummy, langfix.dummy, g, h
+= langfix.opt_or_assert_assign(
+	5,				<- how many
+					<- tables ...
+	a, 'b', nil,	<- table, key, extra
+	c, 'd', nil,
+	e, 'f', true,	<- extra==true means assert-assign
+	nil, nil, nil,
+	nil, nil, nil,
+					<- values ...
+	...)
+
+... and then the assign function can do the opt or assert testing,
+	do the assignment to the tables,
+	and return the rest to be assigned to whatever else (locals, etc)
+
+NOTICE, no 'local' declaration mixed with opt-assign or assert-assign.
+if you have a local decl then use parent class operations.
+--]]
+local superassign = ast._assign
+local _assign = superassign:subclass()
+ast._assign = _assign
+function _assign:serialize(consume)
+	local help
+	for _,var in ipairs(self.vars) do
+		if ast._optindex:isa(var)
+		or ast._assertindex:isa(var)
+		then
+			help = true
+			break
+		end
+	end
+
+	if not help then
+		return superassign.serialize(self, consume)
+	end
+
+	local sep
+	for _,var in ipairs(self.vars) do
+		if sep then consume(sep) end
+		if ast._optindex:isa(var)
+		or ast._assertindex:isa(var)
+		then
+			consume'langfix.dummyreg'
+		else
+			consume(var)
+		end
+		sep = ','
+	end
+	consume'='
+	consume'langfix.opt_or_assert_assign('
+	consume(tostring(#self.vars))
+	for _,var in ipairs(self.vars) do
+		if ast._optindex:isa(var) then
+			consume','
+			consume(var.expr)
+			consume','
+			consume(var.key)
+			consume', false'
+		elseif ast._assertindex:isa(var) then
+			consume','
+			consume(var.expr)
+			consume','
+			consume(var.key)
+			consume', true'
+		else
+			consume', nil, nil, nil'
+		end
+	end
+	for _,expr in ipairs(self.exprs) do
+		consume','
+		consume(expr)
+	end
+	consume')'
+end
 
 -- and for optindexself to work, now I have to add exceptions to call...
 local supercall = ast._call

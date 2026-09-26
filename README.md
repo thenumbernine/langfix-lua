@@ -102,7 +102,11 @@ Ex: A lambda that truncates to the first value of a vararg will look like `|...|
 
 ## Non-Nil Assertion Operator:
 
-`a!.b`, `a!['b']`, `a!()`, `a!.b()`, `a!:b()`, `a.b!()`, `a!.b?()`, `a:b!()`, `a!:b!()` etc ... to error when an indexed field is `nil`.
+`a!.b`, `a!['b']`, `a!()`, `a!.b()`, `a!:b()`, `a.b!()`, `a!.b?()`, `a:b!()`, `a!:b!()` etc ... to error when the table is `nil`.
+
+These work in assignment, even with multiple expressions, and mixed with locals:
+
+`a?.b, a?['c'], a!.d a!['e'], f, g.h, i?()?.k = ...` is valid syntax.
 
 ## Ternary operator
 

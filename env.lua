@@ -73,6 +73,8 @@ return function(env)
 	-- that we want to error if k is nil, but we still want to overwrite it?
 	-- who would ever want to do that?
 	-- but honestly, same with `t?.k = v` ... optassign is just as bad ... just use `??=` and be done with it.
+	--
+	-- TODO I think I can get rid of assert-assign now that I added opt_or_assert_assign below...
 	langfix.assertindex = function(t, k, assertassign)
 		if t == nil then
 			error("table is nil")
@@ -95,6 +97,41 @@ return function(env)
 	end
 	langfix.assertcallself = function(t, k, assertassign, ...)
 		return langfix.assertcall(langfix.assertindex(t, k, assertassign), t, ...)
+	end
+
+	langfix.opt_or_assert_assign = function(n, ...)
+--DEBUG:print('args', ...)
+--DEBUG:print('num exprs', n)
+		for i=1,n do
+--DEBUG:print('expr', i)
+			local t = select(3*(i-1)+1, ...)
+			local k = select(3*(i-1)+2, ...)
+			local op = select(3*(i-1)+3, ...)
+--DEBUG:print('t', t, 'k', k, 'op', op)
+			if op == false then
+				-- opt-assign
+				if t ~= nil then
+					local v = select(3*(n-1)+3+i, ...)
+--DEBUG:print('opt assign v', v)
+					t[k] = v
+				end
+			elseif op == true then
+				-- assert-assign
+				if t == nil then
+					error("table is nil")
+				end
+				local v = select(3*(n-1)+3+i, ...)
+--DEBUG:print('assert assign v', v)
+				t[k] = v
+			elseif op == nil then
+				local v = select(3*(n-1)+3+i, ...)
+--DEBUG:print('fall through value', v)
+			-- plain var, ignore for now, they will catch assignment on fallthrough
+			end
+		end
+--DEBUG:print('returning rest', select(3*(n-1)+4, ...))
+		-- fallthrough for plain vars
+		return select(3*(n-1)+4, ...)
 	end
 
 	--local ztable = require '0-based'
