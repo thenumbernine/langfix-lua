@@ -14,37 +14,37 @@ function LuaFixedTokenizer:initSymbolsAndKeywords(...)
 	--local ast = self.parser.ast
 	local ast = require 'langfix.ast'
 
-	self.symbols:insert(ast._ashr.op)
+	self.symbols[ast._ashr.op] = true
 	for _,cl in ipairs(ast.assignops) do
-		self.symbols:insert(cl.op)
+		self.symbols[cl.op] = true
 	end
 	for _,cl in ipairs(ast.assignwalrusops) do
-		self.symbols:insert(cl.op)
+		self.symbols[cl.op] = true
 	end
 
-	self.symbols:insert'//'	-- always add idiv symbol
+	self.symbols['//'] = true	-- always add idiv symbol
 
 	-- safe-navigation token, pairs with ?. ?: ?[ ?(
-	self.symbols:insert'?.'
-	self.symbols:insert'?['
-	self.symbols:insert'?:'
-	self.symbols:insert'?('
+	self.symbols['?.'] = true
+	self.symbols['?['] = true
+	self.symbols['?:'] = true
+	self.symbols['?('] = true
 
-	self.symbols:insert'?'	-- ternary
+	self.symbols['?'] = true	-- ternary
 
-	self.symbols:insert'??'	-- null-coalescence
+	self.symbols['??'] = true	-- null-coalescence
 
 	-- non-nil assertion
-	self.symbols:insert'!.'
-	self.symbols:insert'!['
-	self.symbols:insert'!:'
-	self.symbols:insert'!('
+	self.symbols['!.'] = true
+	self.symbols['!['] = true
+	self.symbols['!:'] = true
+	self.symbols['!('] = true
 
 	-- walrus opertor
-	self.symbols:insert':='
+	self.symbols[':='] = true
 
 	-- left-arg-call
-	self.symbols:insert'->'
+	self.symbols['->'] = true
 end
 
 return LuaFixedTokenizer
