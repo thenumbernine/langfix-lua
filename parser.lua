@@ -96,7 +96,9 @@ function LuaParser:parse_funcname()
 	-- if we already got a ':' then don't check for '::'
 	if not ast._indexself:isa(name) then
 		if self:canbe('::', 'symbol') then
-			name = self:node('_indexselfscope', name, self:mustbe(nil, 'name'))
+			self:mustbe(nil, 'name')
+			local s = self.lasttoken
+			name = self:node('_indexselfscope', name, s)
 				:setspan(from, self:getloc())
 		end
 	end
@@ -112,17 +114,23 @@ function LuaFixedParser:parse_funcname()
 		:setspan(from, self:getloc())
 	while self:canbe('.', 'symbol') do
 		local sfrom = self.t:getloc()
+		self:mustbe(nil, 'name')
+		local s = self.lasttoken
 		name = self:node('_index',
 			name,
-			self:node('_string', self:mustbe(nil, 'name'))
+			self:node('_string', s)
 				:setspan(sfrom, self:getloc())
 		):setspan(from, self:getloc())
 	end
 	if self:canbe(':', 'symbol') then
-		name = self:node('_indexself', name, self:mustbe(nil, 'name'))
+		self:mustbe(nil, 'name')
+		local s = self.lasttoken
+		name = self:node('_indexself', name, s)
 			:setspan(from, self:getloc())
 	elseif self:canbe('::', 'symbol') then
-		name = self:node('_indexselfscope', name, self:mustbe(nil, 'name'))
+		self:mustbe(nil, 'name')
+		local s = self.lasttoken
+		name = self:node('_indexselfscope', name, s)
 			:setspan(from, self:getloc())
 	end
 	return name
@@ -149,8 +157,11 @@ function LuaFixedParser:parse_prefixexp()
 	end
 
 	while true do
-		local opt = self:canbe('?[', 'symbol')
-			or self:canbe('![', 'symbol')
+		local opt = (
+				self:canbe('?[', 'symbol')
+				or self:canbe('![', 'symbol')
+			)
+			and self.lasttoken
 		if opt or self:canbe('[', 'symbol') then
 			local classname =
 				opt == '?[' and '_optindex'
@@ -160,33 +171,41 @@ function LuaFixedParser:parse_prefixexp()
 			self:mustbe(']', 'symbol')
 			prefixexp:setspan(from, self:getloc())
 		else
-			opt = self:canbe('?.', 'symbol')
+			opt = (
+				self:canbe('?.', 'symbol')
 				or self:canbe('!.', 'symbol')
+			) and self.lasttoken
 			if opt or self:canbe('.', 'symbol') then
 				local classname =
 					opt == '?.' and '_optindex'
 					or opt == '!.' and '_assertindex'
 					or '_index'
 				local sfrom = self:getloc()
+				self:mustbe(nil, 'name')
+				local s = self.lasttoken
 				prefixexp = self:node(
 					classname,
 					prefixexp,
-					self:node('_string', self:mustbe(nil, 'name'))
+					self:node('_string', s)
 						:setspan(sfrom, self:getloc())
 				)
 				:setspan(from, self:getloc())
 			else
-				opt = self:canbe('?:', 'symbol')
+				opt = (
+					self:canbe('?:', 'symbol')
 					or self:canbe('!:', 'symbol')
+				) and self.lasttoken
 				if opt or self:canbe(':', 'symbol') then
 					local classname =
 						opt == '?:' and '_optindexself'
 						or opt == '!:' and '_assertindexself'
 						or '_indexself'
+					self:mustbe(nil, 'name')
+					local s = self.lasttoken
 					prefixexp = self:node(
 						classname,
 						prefixexp,
-						self:mustbe(nil, 'name')
+						s
 					):setspan(from, self:getloc())
 
 					-- it'd be nice to handle f?'strings' or f?{tables} just like we can do without ?'s
