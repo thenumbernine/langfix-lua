@@ -20,8 +20,8 @@ for k,cl in pairs(ast) do
 		function cl:toLuaFixed_recursive(consume)
 			return self:serialize(consume)
 		end
-		function cl:toLuaFixed()
-			return self:serializeRecursiveMember'toLuaFixed_recursive'
+		function cl:toLuaFixed(...)
+			return self:serializeRecursiveMember('toLuaFixed_recursive', ...)
 		end
 	end
 end

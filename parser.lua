@@ -43,15 +43,15 @@ function LuaFixedParser:parse_stat_keyword()
 		if not ({['while']=1, ['repeat']=1, ['for =']=1, ['for in']=1})[self.blockStack:last()] then
 			error"MSG:continue not inside loop"
 		end
-		local from = self:getloc()
+		local fromSep, from = self:getlocLC()
 		local node = self:node'_continue'
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 		return node
 	end
 end
 
 -- add op= parsing
-function LuaFixedParser:parse_assign(vars, from, ...)
+function LuaFixedParser:parse_assign(vars, fromSep, from, ...)
 	local ast = self.ast
 
 	-- op-to-as-assign
@@ -60,7 +60,7 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 			local valueexps = self:parse_explist()
 			if not valueexps then error('MSG:'..cl.op..' expected expr list') end
 			return self:node('_'..cl.type, vars, valueexps)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		end
 	end
 
@@ -73,7 +73,7 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 			local valueexps = self:parse_explist()
 			if not valueexps then error('MSG:'..cl.op..' expected expr list') end	-- call itself and not next rule (parse_walrus_args) to allow chaining
 			return self:node('_'..cl.type, vars, valueexps)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		end
 	end
 
@@ -81,15 +81,15 @@ function LuaFixedParser:parse_assign(vars, from, ...)
 	if self:canbe(':=', 'symbol') then
 		local valueexps = assert(self:parse_explist(), 'MSG: := expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
 		return self:node('_walrus', vars, valueexps)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	end
 
-	return LuaFixedParser.super.parse_assign(self, vars, from, ...)
+	return LuaFixedParser.super.parse_assign(self, vars, fromSep, from, ...)
 end
 
 --[[ I thought I could use the superclass function ...
 function LuaParser:parse_funcname()
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local name = LuaFixedParser.super.parse_funcname(self)
 	if not name then return end
 
@@ -99,7 +99,7 @@ function LuaParser:parse_funcname()
 			self:mustbe(nil, 'name')
 			local s = self.lasttoken
 			name = self:node('_indexselfscope', name, s)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		end
 	end
 
@@ -109,29 +109,29 @@ end
 -- [[
 function LuaFixedParser:parse_funcname()
 	if not self:canbe(nil, 'name') then return end
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local name = self:node('_var', self.lasttoken)
-		:setspan(from, self:getloc())
+		:setspan(fromSep, from, self:getlocR())
 	while self:canbe('.', 'symbol') do
-		local sfrom = self.t:getloc()
+		local sfromSep, sfrom = self:getlocLC()
 		self:mustbe(nil, 'name')
 		local s = self.lasttoken
 		name = self:node('_index',
 			name,
 			self:node('_string', s)
-				:setspan(sfrom, self:getloc())
-		):setspan(from, self:getloc())
+				:setspan(sfromSep, sfrom, self:getlocR())
+		):setspan(fromSep, from, self:getlocR())
 	end
 	if self:canbe(':', 'symbol') then
 		self:mustbe(nil, 'name')
 		local s = self.lasttoken
 		name = self:node('_indexself', name, s)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	elseif self:canbe('::', 'symbol') then
 		self:mustbe(nil, 'name')
 		local s = self.lasttoken
 		name = self:node('_indexselfscope', name, s)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	end
 	return name
 end
@@ -142,16 +142,16 @@ end
 function LuaFixedParser:parse_prefixexp()
 	local ast = self.ast
 	local prefixexp
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 
 	if self:canbe('(', 'symbol') then
 		local exp = assert(self:parse_exp(), 'MSG:expected expr')
 		self:mustbe(')', 'symbol')
 		prefixexp = self:node('_par', exp)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	elseif self:canbe(nil, 'name') then
 		prefixexp = self:node('_var', self.lasttoken)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	else
 		return
 	end
@@ -169,7 +169,7 @@ function LuaFixedParser:parse_prefixexp()
 				or '_index'
 			prefixexp = self:node(classname, prefixexp, (assert(self:parse_exp(), 'MSG:expected expr')))
 			self:mustbe(']', 'symbol')
-			prefixexp:setspan(from, self:getloc())
+			prefixexp:setspan(fromSep, from, self:getlocR())
 		else
 			opt = (
 				self:canbe('?.', 'symbol')
@@ -180,16 +180,16 @@ function LuaFixedParser:parse_prefixexp()
 					opt == '?.' and '_optindex'
 					or opt == '!.' and '_assertindex'
 					or '_index'
-				local sfrom = self:getloc()
+				local sfromSep, sfrom = self:getlocLC()
 				self:mustbe(nil, 'name')
 				local s = self.lasttoken
 				prefixexp = self:node(
 					classname,
 					prefixexp,
 					self:node('_string', s)
-						:setspan(sfrom, self:getloc())
+						:setspan(sfromSep, sfrom, self:getlocR())
 				)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 			else
 				opt = (
 					self:canbe('?:', 'symbol')
@@ -206,7 +206,7 @@ function LuaFixedParser:parse_prefixexp()
 						classname,
 						prefixexp,
 						s
-					):setspan(from, self:getloc())
+					):setspan(fromSep, from, self:getlocR())
 
 					-- it'd be nice to handle f?'strings' or f?{tables} just like we can do without ?'s
 					-- but if I do that then I have to handle ? as a separate symbol to the indexes
@@ -229,7 +229,7 @@ function LuaFixedParser:parse_prefixexp()
 
 					assert(args, "MSG:function arguments expected")
 					prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
-						:setspan(from, self:getloc())
+						:setspan(fromSep, from, self:getlocR())
 				else
 					local args, callClassName
 					if self:canbe('?(', 'symbol') then
@@ -249,7 +249,7 @@ function LuaFixedParser:parse_prefixexp()
 					end
 
 					prefixexp = self:node(callClassName, prefixexp, table.unpack(args))
-						:setspan(from, self:getloc())
+						:setspan(fromSep, from, self:getlocR())
 				end
 			end
 		end
@@ -265,7 +265,7 @@ end
 -- but parse_explist() wouldn't want to call into parse_exp() or its handling of walrus might short-circuit parse_explist()'s handling of walrus ...
 -- so I might need to change parse_explist() to handle walrus and then call into the next-most expression like parse_exp_ternary instead of parse_exp ...
 function LuaFixedParser:parse_explist()
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local exps = self:parse_explist_leftcall()
 
 	local ast = self.ast
@@ -277,7 +277,7 @@ function LuaFixedParser:parse_explist()
 			if not valueexps then error('MSG:'..cl.op..' expected expr list') end	-- call itself and not next rule (parse_walrus_args) to allow chaining
 			return {(
 				self:node('_'..cl.type, exps, valueexps)
-					:setspan(from, self:getloc())
+					:setspan(fromSep, from, self:getlocR())
 			)}
 		end
 	end
@@ -286,7 +286,7 @@ function LuaFixedParser:parse_explist()
 		local valueexps = assert(self:parse_explist(), 'MSG: := expected expr list')	-- call itself and not next rule (parse_walrus_args) to allow chaining
 		return {(
 			self:node('_walrus', exps, valueexps)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		)}
 	end
 
@@ -295,7 +295,7 @@ end
 
 function LuaFixedParser:parse_explist_leftcall()
 	local ast = self.ast
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local exps = self:parse_explist_walrus_args()
 
 	if self:canbe('->', 'symbol') then
@@ -303,7 +303,7 @@ function LuaFixedParser:parse_explist_leftcall()
 		assert(func, "MSG:-> expected expr")
 
 		local call = self:node('_leftcall', func, table.unpack(exps))
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 
 --[[
 h(g) (f) (2,3)
@@ -359,7 +359,7 @@ end
 -- I have this here instead of the rules because exp goes to this first, then to ternary (which doesnt fit the rules mould), then on to the rules.
 function LuaFixedParser:parse_exp_walrus()
 	local ast = self.ast
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local a = self:parse_exp_leftcall()
 	if not a then return end
 
@@ -370,14 +370,14 @@ function LuaFixedParser:parse_exp_walrus()
 			local b = self:parse_explist()
 			if not b then error('MSG: '..cl.op..' expected expr') end
 			return self:node('_'..cl.type, {a}, b)
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		end
 	end
 
 	if self:canbe(':=', 'symbol') then
 		local b = assert(self:parse_explist(), 'MSG: := expected expr')
 		return self:node('_walrus', {a}, b)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	end
 
 	return a
@@ -385,7 +385,7 @@ end
 
 function LuaFixedParser:parse_exp_leftcall()
 	local ast = self.ast
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local exp = self:parse_exp_ternary()
 
 	if self:canbe('->', 'symbol') then
@@ -393,7 +393,7 @@ function LuaFixedParser:parse_exp_leftcall()
 		assert(func, "MSG:-> expected expr")
 
 		local call = self:node('_leftcall', func, exp)
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 
 		-- TODO this is ugly and bad and dangerous
 		local function reorder(call)
@@ -419,12 +419,12 @@ end
 -- [=[ ternary operator
 function LuaFixedParser:parse_exp_ternary()
 	local ast = self.ast
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	local a = self:parse_expr_precedenceTable(1)
 	if not a then return end
 
 	-- necessary or was it done in the previous call to get `a` already?
-	a:setspan(from, self:getloc())
+	a:setspan(fromSep, from, self:getlocR())
 
 	-- if we get a ( then handle many and expect a )
 	-- if we don't then just expect one
@@ -451,11 +451,11 @@ function LuaFixedParser:parse_exp_ternary()
 		local c = parseOneOrMany"expected a ? b : c"
 
 		a = self:node('_ternary', a, b, c)
-			:setspan(a.spanFrom, self:getloc())
+			:setspan(a.spanSep, a.spanFrom, self:getlocR())
 	elseif self:canbe('??', 'symbol') then
 		local b = parseOneOrMany"expected a ?? b"
 		a = self:node('_nilcoalescing', a, b)
-			:setspan(a.spanFrom, self:getloc())
+			:setspan(a.spanSep, a.spanFrom, self:getlocR())
 	end
 	return a
 end
@@ -463,7 +463,7 @@ end
 
 -- lambdas
 function LuaFixedParser:parse_functiondef()
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	-- metalua format |args|
 	-- but then with a proper function body, none of this single-expression python lambda bullshit
 	if self:canbe('|', 'symbol') then
@@ -570,7 +570,7 @@ function LuaFixedParser:parse_functiondef()
 		end
 
 		return self:makeFunction(nil, args, table.unpack(block))
-			:setspan(from, self:getloc())
+			:setspan(fromSep, from, self:getlocR())
 	end
 	return LuaFixedParser.super.parse_functiondef(self)
 end
@@ -578,7 +578,7 @@ end
 --[[ the original LuaParser:parse_field function works fine, except that lambdas will get confused with key-expressions unless you wrap them in parentehsis
 -- to get around this ...
 function LuaFixedParser:parse_field()
-	local from = self:getloc()
+	local fromSep, from = self:getlocLC()
 	if self:canbe('[', 'symbol') then
 
 		-- TODO to handle both lambdas or expression-keys
@@ -600,7 +600,7 @@ function LuaFixedParser:parse_field()
 			local valexp = self:parse_exp()
 			if not valexp then error("MSG:expected expression but found "..tostring(self.t.token)) end
 			return self:node('_assign', {keyexp}, {valexp})
-				:setspan(from, self:getloc())
+				:setspan(fromSep, from, self:getlocR())
 		else
 			-- not an equals?  maybe it's a lambda
 		end
@@ -612,11 +612,11 @@ function LuaFixedParser:parse_field()
 	if self.ast._var:isa(exp) and self:canbe('=', 'symbol') then
 		return self:node('_assign',
 			{
-				self:node('_string', exp.name):setspan(exp.spanFrom, exp.spanTo)
+				self:node('_string', exp.name):setspan(exp.spanSep, exp.spanFrom, exp.spanTo)
 			}, {
 				(assert(self:parse_exp(), 'MSG:unexpected symbol'))
 			}
-		):setspan(from, self:getloc())
+		):setspan(fromSep, from, self:getlocR())
 	else
 		return exp
 	end
